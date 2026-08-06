@@ -1,0 +1,26 @@
+# 관리용 VM 1대에 web(Nginx) + was(Spring Boot) 컨테이너 2개를 올린다.
+# was 포트는 컨테이너 네트워크 내부 전용 — 외부 진입점은 web(80) 하나다.
+services:
+  was:
+    build: ../was
+    container_name: kafka-admin-was
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_DATA_DIR: /data
+    volumes:
+      - was-data:/data
+      # SASL_SSL 접속 시 truststore 마운트:
+      # - ./secrets:/secrets:ro
+
+  web:
+    build: ../web
+    container_name: kafka-admin-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - was
+
+volumes:
+  was-data:
