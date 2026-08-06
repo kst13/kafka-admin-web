@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:h2:file:${APP_DATA_DIR:./data}/kafka-admin
+  jpa:
+    hibernate:
+      ddl-auto: update
+app:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    security-protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+    sasl-jaas: ${KAFKA_SASL_JAAS:}
+    truststore-location: ${KAFKA_TRUSTSTORE_LOCATION:}
+    truststore-password: ${KAFKA_TRUSTSTORE_PASSWORD:}
+  admin-initial-password: ${ADMIN_INITIAL_PASSWORD:}
