@@ -38,6 +38,9 @@ public class AuthController {
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(auth);
         SecurityContextHolder.setContext(context);
+        // 세션 고정 공격 방지: 인증 성공 시 세션 ID를 회전시킨다
+        request.getSession(true);
+        request.changeSessionId();
         contextRepository.saveContext(context, request, response);
         return Map.of("username", auth.getName(), "role", roleOf(auth));
     }

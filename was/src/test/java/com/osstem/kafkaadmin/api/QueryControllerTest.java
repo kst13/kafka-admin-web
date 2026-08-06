@@ -6,7 +6,6 @@ import com.osstem.kafkaadmin.kafka.KafkaUnavailableException;
 import com.osstem.kafkaadmin.kafka.TopicQueryService;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.BrokerInfo;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.ClusterInfo;
-import com.osstem.kafkaadmin.kafka.dto.Dtos.TopicSummary;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
