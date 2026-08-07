@@ -20,10 +20,14 @@ function xOf(i: number): number {
   const n = props.points.length
   return n < 2 ? W / 2 : PAD + ((W - PAD * 2) * i) / (n - 1)
 }
+// toPolyline의 평평한 선(값 1개/전부 동일) 분기와 반드시 같은 y를 반환해야
+// 호버 마커가 선 위에 정확히 얹힌다.
 function yOf(i: number): number {
-  const max = Math.max(...values.value)
-  const v = values.value[i] ?? 0
-  if (max === 0) return H / 2
+  const vs = values.value
+  const max = Math.max(...vs)
+  const min = Math.min(...vs)
+  if (vs.length === 1 || max === min) return H / 2
+  const v = vs[i] ?? 0
   return PAD + (H - PAD * 2) - ((H - PAD * 2) * v) / max
 }
 function onMove(e: MouseEvent) {

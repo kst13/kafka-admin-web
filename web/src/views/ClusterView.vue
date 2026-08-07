@@ -18,9 +18,13 @@ const monitor = ref<MonitorStatus | null>(null)
 onMounted(async () => {
   try {
     cluster.value = await api<Cluster>('/cluster')
-    monitor.value = await api<MonitorStatus>('/monitor/status')
   } catch (e) {
     error.value = e instanceof Error ? e.message : '조회 실패'
+  }
+  try {
+    monitor.value = await api<MonitorStatus>('/monitor/status')
+  } catch {
+    // 감시 상태 카드만 생략하고 클러스터 화면은 그대로 둔다
   }
 })
 </script>
