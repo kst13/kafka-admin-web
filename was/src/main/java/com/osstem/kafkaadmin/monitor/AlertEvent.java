@@ -14,6 +14,7 @@ public class AlertEvent {
     private String ruleType;
     private String subjectKey;
     private String message;
+    @Column(name = "alert_value") // H2 예약어(VALUE) 회피
     private double value;
     private double threshold;
     private Instant occurredAt;

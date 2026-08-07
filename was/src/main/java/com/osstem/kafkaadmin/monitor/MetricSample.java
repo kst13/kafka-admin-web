@@ -13,6 +13,7 @@ public class MetricSample {
     private Long id;
     private String metricType;
     private String subjectKey;
+    @Column(name = "metric_value") // H2에서 VALUE는 예약어라 컬럼명을 피한다
     private double value;
     private Instant sampledAt;
 
