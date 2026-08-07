@@ -8,6 +8,7 @@ const route = useRoute()
     <RouterLink to="/">클러스터</RouterLink>
     <RouterLink to="/topics">토픽</RouterLink>
     <RouterLink to="/groups">컨슈머 그룹</RouterLink>
+    <RouterLink to="/alerts">알림</RouterLink>
   </nav>
   <RouterView />
 </template>

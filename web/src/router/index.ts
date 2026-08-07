@@ -10,6 +10,7 @@ const router = createRouter({
     { path: '/topics/:name', component: () => import('@/views/TopicDetailView.vue') },
     { path: '/groups', component: () => import('@/views/GroupsView.vue') },
     { path: '/groups/:groupId', component: () => import('@/views/GroupDetailView.vue') },
+    { path: '/alerts', component: () => import('@/views/AlertsView.vue') },
   ],
 })
 
