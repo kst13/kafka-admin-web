@@ -10,6 +10,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import java.net.InetSocketAddress;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -79,7 +80,10 @@ public class CertExpiryChecker {
         };
         SSLContext ctx = SSLContext.getInstance("TLS");
         ctx.init(null, new TrustManager[]{trustAll}, null);
-        try (SSLSocket socket = (SSLSocket) ctx.getSocketFactory().createSocket(host, port)) {
+        // connect에도 5초 제한: createSocket(host, port)는 접속 타임아웃이 없어
+        // 방화벽에 막힌 브로커에서 OS SYN 재시도 시간만큼(수십 초) 블록될 수 있다.
+        try (SSLSocket socket = (SSLSocket) ctx.getSocketFactory().createSocket()) {
+            socket.connect(new InetSocketAddress(host, port), 5000);
             socket.setSoTimeout(5000);
             socket.startHandshake();
             return (X509Certificate) socket.getSession().getPeerCertificates()[0];
