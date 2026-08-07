@@ -30,8 +30,8 @@ public class MonitorScheduler {
         collector.collectOnce();
     }
 
-    // 매일 03:00 — 인증서 점검 + 보존기간 지난 지표 정리
-    @Scheduled(cron = "0 0 3 * * *")
+    // 매일 03:00 (KST) — 인증서 점검 + 보존기간 지난 지표 정리. 컨테이너 TZ 미설정이라 명시.
+    @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     @Transactional
     public void runDaily() {
         certChecker.runDailyCheck();

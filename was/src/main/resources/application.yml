@@ -14,6 +14,7 @@ app:
   admin-initial-password: ${ADMIN_INITIAL_PASSWORD:}
   monitor:
     enabled: ${MONITOR_ENABLED:true}
+    collect-interval-ms: ${MONITOR_COLLECT_INTERVAL_MS:60000}
     lag-threshold: ${MONITOR_LAG_THRESHOLD:1000}
     disk-used-pct-threshold: ${MONITOR_DISK_USED_PCT_THRESHOLD:80}
     cert-warn-days: ${MONITOR_CERT_WARN_DAYS:30}
