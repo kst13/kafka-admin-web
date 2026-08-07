@@ -6,7 +6,11 @@ Kafka 3노드 클러스터(KRaft, SASL_SSL) 관리자 사이트.
 - `web/` Vue 프론트 (`cd web && npm run dev`)
 - `deploy/` docker-compose 배포 (`cd deploy && docker compose up -d --build`)
 
-설계 문서: devops-note 저장소 `docs/superpowers/specs/2026-08-06-kafka-admin-site-design.md`
+## 문서
+
+- [설계](docs/design.md) — 아키텍처, 모듈 구성, 보안, 구축 단계
+- [1단계 계획](docs/plan-phase1.md) · [2단계 계획](docs/plan-phase2.md) — 실행 기록 (수정 이력 반영 최종본)
+- [3단계 착수 문서](docs/phase3-scope.md) — 다음 단계 범위·이월 항목·선결 결정사항
 
 ## 실행
 
