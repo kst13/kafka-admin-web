@@ -12,3 +12,10 @@ app:
     truststore-location: ${KAFKA_TRUSTSTORE_LOCATION:}
     truststore-password: ${KAFKA_TRUSTSTORE_PASSWORD:}
   admin-initial-password: ${ADMIN_INITIAL_PASSWORD:}
+  monitor:
+    enabled: ${MONITOR_ENABLED:true}
+    lag-threshold: ${MONITOR_LAG_THRESHOLD:1000}
+    disk-used-pct-threshold: ${MONITOR_DISK_USED_PCT_THRESHOLD:80}
+    cert-warn-days: ${MONITOR_CERT_WARN_DAYS:30}
+    cooldown-minutes: ${MONITOR_COOLDOWN_MINUTES:30}
+    retention-days: ${MONITOR_RETENTION_DAYS:7}
