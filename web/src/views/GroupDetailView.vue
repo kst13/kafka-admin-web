@@ -18,12 +18,17 @@ const trend = ref<{ t: string; v: number }[]>([])
 onMounted(async () => {
   try {
     detail.value = await api<GroupDetail>(`/groups/${route.params.groupId}`)
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '조회 실패'
+  }
+
+  try {
     const pts = await api<SamplePoint[]>(
       `/metrics?type=LAG&subject=${route.params.groupId}&hours=24`,
     )
     trend.value = pts.map((p) => ({ t: p.sampledAt, v: p.value }))
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : '조회 실패'
+  } catch {
+    // 차트만 생략하고 그룹 상세는 그대로 둔다 (TrendChart가 '데이터 없음' 표시)
   }
 })
 </script>
