@@ -19,33 +19,41 @@ class MonitorPersistenceTest {
     @Autowired AlertEventRepository alerts;
     @Autowired MonitorProperties props;
 
+    // 주의: H2가 이름 있는 인메모리 DB(jdbc:h2:mem:test)라 다른 테스트 컨텍스트와
+    // 데이터가 공유된다. 다른 IT가 커밋한 행과 섞이지 않도록 이 테스트 전용 키(pt- 접두어)를 쓴다.
+
     @Test
     void 기간_내_지표를_시각순으로_조회하고_오래된_것을_삭제한다() {
         Instant now = Instant.now();
-        samples.save(new MetricSample("LAG", "g1", 10, now.minus(2, ChronoUnit.HOURS)));
-        samples.save(new MetricSample("LAG", "g1", 20, now.minus(1, ChronoUnit.HOURS)));
-        samples.save(new MetricSample("LAG", "g2", 99, now.minus(1, ChronoUnit.HOURS)));
-        samples.save(new MetricSample("LAG", "g1", 5, now.minus(10, ChronoUnit.DAYS)));
+        samples.save(new MetricSample("LAG", "pt-g1", 10, now.minus(2, ChronoUnit.HOURS)));
+        samples.save(new MetricSample("LAG", "pt-g1", 20, now.minus(1, ChronoUnit.HOURS)));
+        samples.save(new MetricSample("LAG", "pt-g2", 99, now.minus(1, ChronoUnit.HOURS)));
+        samples.save(new MetricSample("LAG", "pt-g1", 5, now.minus(10, ChronoUnit.DAYS)));
 
         List<MetricSample> found = samples
                 .findByMetricTypeAndSubjectKeyAndSampledAtAfterOrderBySampledAt(
-                        "LAG", "g1", now.minus(1, ChronoUnit.DAYS));
+                        "LAG", "pt-g1", now.minus(1, ChronoUnit.DAYS));
         assertThat(found).extracting(MetricSample::getValue).containsExactly(10.0, 20.0);
 
         long deleted = samples.deleteBySampledAtBefore(now.minus(7, ChronoUnit.DAYS));
-        assertThat(deleted).isEqualTo(1);
+        assertThat(deleted).isGreaterThanOrEqualTo(1);
+        assertThat(samples.findByMetricTypeAndSubjectKeyAndSampledAtAfterOrderBySampledAt(
+                "LAG", "pt-g1", now.minus(30, ChronoUnit.DAYS)))
+                .extracting(MetricSample::getValue).containsExactly(10.0, 20.0);
     }
 
     @Test
     void 쿨다운_존재_확인과_최신_알림_조회가_동작한다() {
         Instant now = Instant.now();
-        alerts.save(new AlertEvent("LAG_HIGH", "g1", "랙 초과", 1500, 1000,
+        alerts.save(new AlertEvent("LAG_HIGH", "pt-alert-g1", "랙 초과", 1500, 1000,
                 now.minus(10, ChronoUnit.MINUTES)));
         assertThat(alerts.existsByRuleTypeAndSubjectKeyAndOccurredAtAfter(
-                "LAG_HIGH", "g1", now.minus(30, ChronoUnit.MINUTES))).isTrue();
+                "LAG_HIGH", "pt-alert-g1", now.minus(30, ChronoUnit.MINUTES))).isTrue();
         assertThat(alerts.existsByRuleTypeAndSubjectKeyAndOccurredAtAfter(
-                "LAG_HIGH", "g2", now.minus(30, ChronoUnit.MINUTES))).isFalse();
-        assertThat(alerts.findTop50ByOrderByOccurredAtDesc()).hasSize(1);
+                "LAG_HIGH", "pt-alert-g2", now.minus(30, ChronoUnit.MINUTES))).isFalse();
+        assertThat(alerts.findTop50ByOrderByOccurredAtDesc())
+                .filteredOn(a -> a.getSubjectKey().equals("pt-alert-g1"))
+                .hasSize(1);
     }
 
     @Test
