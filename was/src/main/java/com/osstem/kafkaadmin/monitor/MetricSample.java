@@ -5,7 +5,8 @@ import java.time.Instant;
 
 // 지표 이력 1건. metricType: LAG | URP | DISK_USED_PCT | BROKER_COUNT
 @Entity
-@Table(name = "metric_sample")
+@Table(name = "metric_sample", indexes =
+        @Index(name = "idx_metric_lookup", columnList = "metricType,subjectKey,sampledAt"))
 public class MetricSample {
 
     @Id

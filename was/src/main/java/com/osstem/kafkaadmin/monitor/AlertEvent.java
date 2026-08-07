@@ -5,7 +5,8 @@ import java.time.Instant;
 
 // 알림 이력 1건. ruleType: LAG_HIGH | DISK_HIGH | CERT_EXPIRY | COLLECTOR_FAILURE
 @Entity
-@Table(name = "alert_event")
+@Table(name = "alert_event", indexes =
+        @Index(name = "idx_alert_cooldown", columnList = "ruleType,subjectKey,occurredAt"))
 public class AlertEvent {
 
     @Id
