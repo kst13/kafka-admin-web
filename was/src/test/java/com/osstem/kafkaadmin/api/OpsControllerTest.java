@@ -93,4 +93,17 @@ class OpsControllerTest {
         mvc.perform(get("/api/ops/audit-logs"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void 설정만_변경하는_PATCH는_204이고_updateTopic을_올바르게_호출한다() throws Exception {
+        willAnswer(inv -> { inv.getArgument(4, Runnable.class).run(); return null; })
+                .given(recorder).record(any(), any(), any(), any(), any());
+        java.util.Map<String, String> configs = java.util.Map.of("retention.ms", "1000");
+        mvc.perform(patch("/api/ops/topics/orders")
+                        .contentType("application/json")
+                        .content("{\"configs\":{\"retention.ms\":\"1000\"}}"))
+                .andExpect(status().isNoContent());
+        then(commands).should().updateTopic("orders", null, configs);
+    }
 }

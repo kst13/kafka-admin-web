@@ -1,5 +1,7 @@
 package com.osstem.kafkaadmin.api;
 
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.osstem.kafkaadmin.ops.AuditLog;
 import com.osstem.kafkaadmin.ops.AuditLogRepository;
 import com.osstem.kafkaadmin.ops.AuditRecorder;
@@ -23,12 +25,14 @@ public class OpsController {
     private final TopicCommandService commands;
     private final AuditRecorder recorder;
     private final AuditLogRepository auditLogs;
+    private final ObjectMapper objectMapper;
 
     public OpsController(TopicCommandService commands, AuditRecorder recorder,
-                         AuditLogRepository auditLogs) {
+                         AuditLogRepository auditLogs, ObjectMapper objectMapper) {
         this.commands = commands;
         this.recorder = recorder;
         this.auditLogs = auditLogs;
+        this.objectMapper = objectMapper;
     }
 
     // 201 에 빈 본문을 주면 기존 web/src/api/client.ts 가 res.json() 에서 실패한다
@@ -69,19 +73,10 @@ public class OpsController {
     }
 
     private String toJson(Object value) {
-        // Simple JSON serialization for audit logging purposes
-        if (value instanceof CreateTopicRequest req) {
-            return String.format("{\"name\":\"%s\",\"partitions\":%d,\"replicationFactor\":%d}",
-                    escapeJson(req.name()), req.partitions(), req.replicationFactor());
-        } else if (value instanceof UpdateTopicRequest req) {
-            return String.format("{\"partitions\":%d}",
-                    req.partitions() != null ? req.partitions() : "null");
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JacksonException e) {
+            return "{}";
         }
-        return "{}";
-    }
-
-    private String escapeJson(String value) {
-        if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }
