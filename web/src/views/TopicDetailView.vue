@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/api/client'
+import { useSession } from '@/composables/useSession'
+import TopicEditModal from '@/components/TopicEditModal.vue'
+import TopicDeleteModal from '@/components/TopicDeleteModal.vue'
 
 interface PartitionInfo { partition: number; leader: number; replicas: number[]; isr: number[] }
 interface TopicDetail { name: string; partitions: PartitionInfo[]; configs: Record<string, string> }
 
 const route = useRoute()
+const router = useRouter()
+const { isAdmin } = useSession()
 const detail = ref<TopicDetail | null>(null)
 const error = ref('')
+const showEdit = ref(false)
+const showDelete = ref(false)
 
 onMounted(async () => {
   try {
@@ -17,11 +24,26 @@ onMounted(async () => {
     error.value = e instanceof Error ? e.message : '조회 실패'
   }
 })
+
+async function reload() {
+  showEdit.value = false
+  detail.value = await api<TopicDetail>(`/topics/${route.params.name}`)
+}
+
+function onDeleted() {
+  router.push('/topics')
+}
 </script>
 
 <template>
   <main>
-    <h1>토픽: {{ route.params.name }}</h1>
+    <div class="head-row">
+      <h1>토픽: {{ route.params.name }}</h1>
+      <div v-if="isAdmin && detail" class="actions">
+        <button type="button" @click="showEdit = true">설정 수정</button>
+        <button type="button" class="danger-outline" @click="showDelete = true">삭제</button>
+      </div>
+    </div>
     <p v-if="error" class="error">{{ error }}</p>
     <template v-else-if="detail">
       <h2>설정</h2>
@@ -45,9 +67,39 @@ onMounted(async () => {
         </tbody>
       </table>
     </template>
+    <TopicEditModal
+      v-if="showEdit && detail"
+      :name="detail.name"
+      :current-partitions="detail.partitions.length"
+      :configs="detail.configs"
+      @close="showEdit = false"
+      @updated="reload"
+    />
+    <TopicDeleteModal
+      v-if="showDelete && detail"
+      :name="detail.name"
+      @close="showDelete = false"
+      @deleted="onDeleted"
+    />
   </main>
 </template>
 
 <style scoped>
+.head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.danger-outline {
+  border: 1px solid var(--crit);
+  color: var(--crit);
+  background: none;
+  border-radius: 6px;
+  padding: 0.35rem 0.9rem;
+}
 .warn { color: #c00; font-weight: bold; }
 </style>
