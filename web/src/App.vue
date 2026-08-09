@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useSession } from '@/composables/useSession'
+
 const route = useRoute()
+const { load } = useSession()
+onMounted(load)
 </script>
 
 <template>

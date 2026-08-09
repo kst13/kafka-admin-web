@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '@/api/client'
+import { useSession } from '@/composables/useSession'
 
 const router = useRouter()
 const username = ref('')
@@ -15,6 +16,7 @@ async function login() {
       method: 'POST',
       body: JSON.stringify({ username: username.value, password: password.value }),
     })
+    await useSession().load()
     router.push('/')
   } catch {
     error.value = '아이디 또는 비밀번호가 올바르지 않습니다'

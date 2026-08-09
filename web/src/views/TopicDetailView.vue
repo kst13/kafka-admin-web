@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/api/client'
+import { useSession } from '@/composables/useSession'
+import TopicEditModal from '@/components/TopicEditModal.vue'
+import TopicDeleteModal from '@/components/TopicDeleteModal.vue'
 
 interface PartitionInfo { partition: number; leader: number; replicas: number[]; isr: number[] }
 interface TopicDetail { name: string; partitions: PartitionInfo[]; configs: Record<string, string> }
@@ -14,11 +17,15 @@ interface MessageRecord {
 }
 
 const route = useRoute()
+const router = useRouter()
+const { isAdmin } = useSession()
 const detail = ref<TopicDetail | null>(null)
 const error = ref('')
 const messages = ref<MessageRecord[]>([])
 const messagesError = ref('')
 const messagesLoading = ref(false)
+const showEdit = ref(false)
+const showDelete = ref(false)
 
 async function loadMessages() {
   messagesLoading.value = true
@@ -40,11 +47,26 @@ onMounted(async () => {
   }
   await loadMessages()
 })
+
+async function reload() {
+  showEdit.value = false
+  detail.value = await api<TopicDetail>(`/topics/${route.params.name}`)
+}
+
+function onDeleted() {
+  router.push('/topics')
+}
 </script>
 
 <template>
   <main>
-    <h1>토픽: {{ route.params.name }}</h1>
+    <div class="head-row">
+      <h1>토픽: {{ route.params.name }}</h1>
+      <div v-if="isAdmin && detail" class="actions">
+        <button type="button" @click="showEdit = true">설정 수정</button>
+        <button type="button" class="danger-outline" @click="showDelete = true">삭제</button>
+      </div>
+    </div>
     <p v-if="error" class="error">{{ error }}</p>
     <template v-else-if="detail">
       <h2>설정</h2>
@@ -91,10 +113,40 @@ onMounted(async () => {
       </table>
       <p class="hint">최신순 최대 50건, 값은 1,000자까지 표시됩니다.</p>
     </template>
+    <TopicEditModal
+      v-if="showEdit && detail"
+      :name="detail.name"
+      :current-partitions="detail.partitions.length"
+      :configs="detail.configs"
+      @close="showEdit = false"
+      @updated="reload"
+    />
+    <TopicDeleteModal
+      v-if="showDelete && detail"
+      :name="detail.name"
+      @close="showDelete = false"
+      @deleted="onDeleted"
+    />
   </main>
 </template>
 
 <style scoped>
+.head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.danger-outline {
+  border: 1px solid var(--crit, #c0392b);
+  color: var(--crit, #c0392b);
+  background: none;
+  border-radius: 6px;
+  padding: 0.35rem 0.9rem;
+}
 .warn { color: var(--crit); font-weight: bold; }
 .hint { font-size: 0.85rem; color: var(--ink-soft); }
 .messages-head { display: flex; align-items: center; gap: 0.75rem; }
