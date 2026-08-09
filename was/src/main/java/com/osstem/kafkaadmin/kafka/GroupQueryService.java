@@ -1,6 +1,7 @@
 package com.osstem.kafkaadmin.kafka;
 
 import com.osstem.kafkaadmin.kafka.dto.Dtos.GroupDetail;
+import com.osstem.kafkaadmin.kafka.dto.Dtos.GroupMember;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.GroupSummary;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.PartitionLag;
 import org.apache.kafka.clients.admin.Admin;
@@ -66,6 +67,18 @@ public class GroupQueryService {
                         .thenComparingInt(PartitionLag::partition))
                 .toList();
         long totalLag = lags.stream().mapToLong(PartitionLag::lag).sum();
-        return new GroupDetail(groupId, desc.state().toString(), lags, totalLag);
+
+        // 활성 멤버(개별 컨슈머 인스턴스)와 담당 파티션 — 리밸런스·파티션 쏠림 추적용
+        List<GroupMember> members = desc.members().stream()
+                .map(m -> new GroupMember(m.consumerId(), m.clientId(), m.host(),
+                        m.assignment().topicPartitions().stream()
+                                .sorted(Comparator.comparing(TopicPartition::topic)
+                                        .thenComparingInt(TopicPartition::partition))
+                                .map(TopicPartition::toString)
+                                .toList()))
+                .sorted(Comparator.comparing(GroupMember::clientId)
+                        .thenComparing(GroupMember::memberId))
+                .toList();
+        return new GroupDetail(groupId, desc.state().toString(), lags, totalLag, members);
     }
 }

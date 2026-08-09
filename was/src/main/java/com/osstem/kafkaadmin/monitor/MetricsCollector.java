@@ -3,7 +3,9 @@ package com.osstem.kafkaadmin.monitor;
 import com.osstem.kafkaadmin.kafka.ClusterQueryService;
 import com.osstem.kafkaadmin.kafka.GroupQueryService;
 import com.osstem.kafkaadmin.kafka.MonitorQueryService;
+import com.osstem.kafkaadmin.kafka.dto.Dtos.GroupDetail;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.GroupSummary;
+import com.osstem.kafkaadmin.kafka.dto.Dtos.PartitionLag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -43,8 +45,18 @@ public class MetricsCollector {
             Instant now = Instant.now();
             List<MetricSample> batch = new ArrayList<>();
             for (GroupSummary g : groups.listGroups()) {
-                batch.add(new MetricSample("LAG", g.groupId(),
-                        groups.describeGroup(g.groupId()).totalLag(), now));
+                GroupDetail detail = groups.describeGroup(g.groupId());
+                batch.add(new MetricSample("LAG", g.groupId(), detail.totalLag(), now));
+                // 누적 커밋 오프셋 합 — 소비량은 프론트가 증가분으로 계산한다
+                long committedSum = detail.lags().stream()
+                        .mapToLong(PartitionLag::committed).sum();
+                batch.add(new MetricSample("CONSUMED_TOTAL", g.groupId(), committedSum, now));
+                // 토픽별 합 — "어느 토픽에서 몇 건 가져왔는지" 소비 내역의 원천
+                detail.lags().stream()
+                        .collect(java.util.stream.Collectors.groupingBy(PartitionLag::topic,
+                                java.util.stream.Collectors.summingLong(PartitionLag::committed)))
+                        .forEach((topic, sum) -> batch.add(new MetricSample(
+                                "CONSUMED_TOPIC", g.groupId() + "|" + topic, sum, now)));
             }
             batch.add(new MetricSample("URP", "cluster",
                     monitorQuery.countUnderReplicatedPartitions(), now));

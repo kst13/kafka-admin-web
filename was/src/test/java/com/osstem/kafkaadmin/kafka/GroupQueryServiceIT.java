@@ -54,6 +54,29 @@ class GroupQueryServiceIT extends KafkaIntegrationTestBase {
                 .anySatisfy(g -> assertThat(g.groupId()).isEqualTo("g1"));
     }
 
+    @Test
+    void 활성_멤버의_클라이언트ID와_담당_파티션이_보인다() throws Exception {
+        admin.createTopics(List.of(new NewTopic("member-topic", 2, (short) 1))).all().get();
+
+        try (var consumer = new KafkaConsumer<String, String>(consumerProps("member-g1"))) {
+            consumer.subscribe(List.of("member-topic"));
+            // 파티션이 배정될 때까지 폴링 (리밸런스 완료 대기)
+            while (consumer.assignment().isEmpty()) {
+                consumer.poll(Duration.ofMillis(200));
+            }
+
+            GroupDetail detail = service.describeGroup("member-g1");
+
+            assertThat(detail.members()).hasSize(1);
+            var member = detail.members().get(0);
+            assertThat(member.memberId()).isNotBlank();
+            assertThat(member.clientId()).isNotBlank();
+            assertThat(member.host()).isNotBlank();
+            assertThat(member.assignedPartitions())
+                    .containsExactly("member-topic-0", "member-topic-1");
+        }
+    }
+
     private Map<String, Object> producerProps() {
         return Map.of(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers(),

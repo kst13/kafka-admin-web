@@ -1,5 +1,6 @@
 package com.osstem.kafkaadmin.kafka.dto;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -13,5 +14,10 @@ public final class Dtos {
     public record TopicDetail(String name, List<PartitionInfo> partitions, Map<String, String> configs) {}
     public record GroupSummary(String groupId, String state, int memberCount) {}
     public record PartitionLag(String topic, int partition, long committed, long end, long lag) {}
-    public record GroupDetail(String groupId, String state, List<PartitionLag> lags, long totalLag) {}
+    public record GroupMember(String memberId, String clientId, String host,
+                              List<String> assignedPartitions) {}
+    public record GroupDetail(String groupId, String state, List<PartitionLag> lags, long totalLag,
+                              List<GroupMember> members) {}
+    public record MessageRecord(int partition, long offset, Instant timestamp,
+                                String key, String value) {}
 }
