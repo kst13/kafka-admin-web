@@ -38,7 +38,7 @@ describe('TopicCreateModal', () => {
     await wrapper.find('input[name="retentionMs"]').setValue('86400000')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    const body = JSON.parse(vi.mocked(api).mock.calls[0][1]!.body as string)
+    const body = JSON.parse(vi.mocked(api).mock.calls[0]![1]!.body as string)
     expect(body.configs).toEqual({ 'retention.ms': '86400000' })
   })
 
