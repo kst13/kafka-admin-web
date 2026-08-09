@@ -36,7 +36,18 @@ async function login() {
 </template>
 
 <style scoped>
-.login { max-width: 320px; margin: 15vh auto; display: flex; flex-direction: column; gap: 1rem; }
-form { display: flex; flex-direction: column; gap: 0.5rem; }
-.error { color: #c00; }
+.login {
+  max-width: 340px;
+  margin: 15vh auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 1.75rem;
+}
+.login h1 { text-align: center; margin-bottom: 0.25rem; }
+form { display: flex; flex-direction: column; gap: 0.6rem; }
 </style>
