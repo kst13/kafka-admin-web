@@ -48,7 +48,7 @@ api/
 | errorMessage | String, nullable | 실패 시 예외 메시지 |
 | executedAt | Instant | |
 
-- `AuditRecorder.record(actor, action, target, params, runnable)` 형태의 래퍼가 실행을 감싸 성공/실패를 모두 저장한다. 감사 저장 실패가 조치 결과를 삼키지 않도록 별도 트랜잭션(REQUIRES_NEW)으로 기록한다.
+- `AuditRecorder.record(actor, action, target, params, runnable)` 형태의 래퍼가 실행을 감싸 성공/실패를 모두 저장한다. 감사 저장 실패가 조치 결과를 삼키지 않도록 저장을 격리한다(조치 경로에 트랜잭션이 없으므로 저장은 자체 트랜잭션으로 커밋되고, 저장 예외는 로그만 남긴다).
 - H2 예약어 컬럼명 금지 규약 준수 — 구현 첫 단계에서 `result`의 예약어 충돌 여부를 실제 스키마 생성으로 확인하고, 충돌하면 `outcome`으로 바꾼다.
 - 보존: 기간 제한 없음 (3단계 착수 문서 선결 결정 #3의 권장안).
 
