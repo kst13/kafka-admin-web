@@ -40,8 +40,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   z-index: 10;
 }
 .dialog {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--line, #d8dee4);
   border-radius: 8px;
   max-width: 480px;
   width: 100%;
@@ -55,7 +55,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line, #d8dee4);
 }
 .dialog-head h2 {
   font-size: 1.05rem;
@@ -65,11 +65,11 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   border: none;
   background: none;
   font-size: 1rem;
-  color: var(--ink-soft);
+  color: var(--ink-soft, #5c6b7a);
   padding: 0.25rem 0.5rem;
 }
 .close-btn:hover {
-  color: var(--ink);
+  color: var(--ink, #1c2733);
 }
 .dialog-body {
   padding: 1rem 1.25rem;

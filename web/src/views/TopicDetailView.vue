@@ -95,8 +95,8 @@ function onDeleted() {
   gap: 0.5rem;
 }
 .danger-outline {
-  border: 1px solid var(--crit);
-  color: var(--crit);
+  border: 1px solid var(--crit, #c0392b);
+  color: var(--crit, #c0392b);
   background: none;
   border-radius: 6px;
   padding: 0.35rem 0.9rem;

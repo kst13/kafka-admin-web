@@ -20,11 +20,12 @@ public class AuditRecorder {
 
     public void record(String actor, String action, String target, String paramsJson,
                        Runnable operation) {
+        String params = truncate(paramsJson);
         try {
             operation.run();
-            save(new AuditLog(actor, action, target, paramsJson, "SUCCESS", null, Instant.now()));
+            save(new AuditLog(actor, action, target, params, "SUCCESS", null, Instant.now()));
         } catch (RuntimeException e) {
-            save(new AuditLog(actor, action, target, paramsJson, "FAILED",
+            save(new AuditLog(actor, action, target, params, "FAILED",
                     truncate(e.getMessage()), Instant.now()));
             throw e;
         }

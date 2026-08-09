@@ -37,4 +37,14 @@ class AuditRecorderTest {
         assertThat(log.getResult()).isEqualTo("FAILED");
         assertThat(log.getErrorMessage()).isEqualTo("boom");
     }
+
+    @Test
+    void params가_2000자를_초과하면_잘려서_저장된다() {
+        String hugeParams = "x".repeat(3000);
+        recorder.record("audit-t-admin", "TOPIC_CREATE", "audit-t-huge-params", hugeParams,
+                () -> {});
+        AuditLog log = repository.findAll().stream()
+                .filter(l -> l.getTarget().equals("audit-t-huge-params")).findFirst().orElseThrow();
+        assertThat(log.getParams()).hasSize(2000);
+    }
 }

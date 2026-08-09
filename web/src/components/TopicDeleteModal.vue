@@ -52,7 +52,7 @@ label {
   font-size: 0.85rem;
 }
 .danger {
-  background: var(--crit);
+  background: var(--crit, #c0392b);
   color: white;
   border: none;
   border-radius: 6px;
@@ -62,7 +62,7 @@ label {
   opacity: 0.4;
 }
 .error {
-  color: var(--crit);
+  color: var(--crit, #c0392b);
   margin: 0.5rem 0 0;
 }
 </style>

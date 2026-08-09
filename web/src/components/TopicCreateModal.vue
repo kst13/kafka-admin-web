@@ -70,14 +70,14 @@ label {
   font-size: 0.85rem;
 }
 .summary {
-  background: var(--surface-2);
+  background: var(--surface-2, #f4f6f8);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
   margin: 0;
   font-size: 0.85rem;
 }
 .error {
-  color: var(--crit);
+  color: var(--crit, #c0392b);
   margin: 0;
 }
 </style>

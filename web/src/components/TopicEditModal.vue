@@ -73,13 +73,13 @@ label {
 .note {
   margin: 0;
   padding: 0.5rem 0.75rem;
-  background: var(--warn-soft);
+  background: var(--warn-soft, #fdf3d7);
   border-radius: 6px;
-  color: var(--warn);
+  color: var(--warn, #8a6d1a);
   font-size: 0.85rem;
 }
 .error {
-  color: var(--crit);
+  color: var(--crit, #c0392b);
   margin: 0;
 }
 </style>
