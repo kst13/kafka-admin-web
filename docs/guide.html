@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kafka-admin 안내서</title>
+<style>
+  :root {
+    --bg: #F4F6F7;
+    --surface: #FFFFFF;
+    --surface-2: #EDF1F2;
+    --ink: #1B242B;
+    --ink-soft: #5A6870;
+    --line: #D8DFE2;
+    --accent: #0E7C8C;
+    --accent-soft: #E2F0F2;
+    --ok: #1B8A50;
+    --ok-soft: #E3F2E9;
+    --warn: #A66A0E;
+    --warn-soft: #F7EDDA;
+    --crit: #BC3A3A;
+    --crit-soft: #F8E6E4;
+    --code-bg: #1D262D;
+    --code-ink: #D9E2E8;
+    --shadow: 0 1px 3px rgba(20, 35, 43, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10171C;
+      --surface: #18222A;
+      --surface-2: #1F2B34;
+      --ink: #DEE6EB;
+      --ink-soft: #8FA0AB;
+      --line: #2C3942;
+      --accent: #3FB6C6;
+      --accent-soft: #163740;
+      --ok: #46B87C;
+      --ok-soft: #17322A;
+      --warn: #DBA23F;
+      --warn-soft: #37301B;
+      --crit: #E06A5E;
+      --crit-soft: #3C2422;
+      --code-bg: #0C1216;
+      --code-ink: #C6D2D9;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F6F7; --surface: #FFFFFF; --surface-2: #EDF1F2;
+    --ink: #1B242B; --ink-soft: #5A6870; --line: #D8DFE2;
+    --accent: #0E7C8C; --accent-soft: #E2F0F2;
+    --ok: #1B8A50; --ok-soft: #E3F2E9;
+    --warn: #A66A0E; --warn-soft: #F7EDDA;
+    --crit: #BC3A3A; --crit-soft: #F8E6E4;
+    --code-bg: #1D262D; --code-ink: #D9E2E8;
+    --shadow: 0 1px 3px rgba(20, 35, 43, 0.08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #10171C; --surface: #18222A; --surface-2: #1F2B34;
+    --ink: #DEE6EB; --ink-soft: #8FA0AB; --line: #2C3942;
+    --accent: #3FB6C6; --accent-soft: #163740;
+    --ok: #46B87C; --ok-soft: #17322A;
+    --warn: #DBA23F; --warn-soft: #37301B;
+    --crit: #E06A5E; --crit-soft: #3C2422;
+    --code-bg: #0C1216; --code-ink: #C6D2D9;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; animation: none !important; }
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+  }
+  .mono, code, .sim-url, td.num, th.num {
+    font-family: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  main.doc { max-width: 920px; margin: 0 auto; padding: 0 24px 96px; }
+  a { color: var(--accent); }
+
+  /* ── header ── */
+  header.hero {
+    padding: 56px 0 40px;
+    border-bottom: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+  }
+  h1 { font-size: 34px; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance; }
+  .hero p.lede { color: var(--ink-soft); max-width: 62ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-size: 12.5px; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  }
+  #theme-toggle {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+    flex-shrink: 0;
+  }
+  #theme-toggle:hover { border-color: var(--accent); }
+
+  /* ── sections ── */
+  section { padding-top: 52px; }
+  section > h2 {
+    font-size: 22px; letter-spacing: -0.01em; margin-bottom: 6px; text-wrap: balance;
+  }
+  section > p.sub { color: var(--ink-soft); margin-bottom: 22px; max-width: 68ch; }
+  h3 { font-size: 16px; margin-bottom: 8px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+
+  .role-tag {
+    display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+    padding: 2px 9px; border-radius: 4px; margin-bottom: 10px;
+  }
+  .role-admin { background: var(--accent-soft); color: var(--accent); }
+  .role-dev { background: var(--surface-2); color: var(--ink-soft); }
+  .card p { color: var(--ink-soft); font-size: 14.5px; }
+  .card p strong { color: var(--ink); }
+
+  ul.rules { list-style: none; display: flex; flex-direction: column; gap: 12px; padding: 0; }
+  ul.rules li { display: flex; gap: 12px; align-items: baseline; font-size: 15px; }
+  ul.rules li::before {
+    content: ""; flex-shrink: 0; width: 8px; height: 8px; border-radius: 2px;
+    background: var(--accent); position: relative; top: -1px;
+  }
+  ul.rules li span { color: var(--ink-soft); }
+  ul.rules li strong { color: var(--ink); }
+
+  /* ── architecture ── */
+  .arch { display: flex; flex-direction: column; align-items: stretch; gap: 0; max-width: 560px; margin: 0 auto; }
+  .arch-node {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 18px; box-shadow: var(--shadow);
+  }
+  .arch-node .t { font-weight: 700; font-size: 15px; }
+  .arch-node .d { font-size: 13.5px; color: var(--ink-soft); }
+  .arch-node.broker { border-color: var(--accent); }
+  .arch-arrow {
+    align-self: center; color: var(--ink-soft); font-size: 12.5px;
+    padding: 6px 0; display: flex; align-items: center; gap: 8px;
+  }
+  .arch-arrow::before { content: "↓"; color: var(--accent); font-size: 16px; }
+  .arch-note { font-size: 13.5px; color: var(--ink-soft); margin-top: 18px; text-align: center; }
+
+  /* ── feature cards ── */
+  .feat { display: flex; flex-direction: column; gap: 8px; }
+  .feat-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .phase-pill {
+    font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .phase-done { background: var(--ok-soft); color: var(--ok); }
+  .phase-next { background: var(--warn-soft); color: var(--warn); }
+
+  /* ── tables (doc) ── */
+  table.doc-table { width: 100%; border-collapse: collapse; font-size: 14.5px; background: var(--surface); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+  table.doc-table th, table.doc-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+  table.doc-table tr:last-child td { border-bottom: none; }
+  table.doc-table th { background: var(--surface-2); font-size: 13px; color: var(--ink-soft); }
+
+  .status-pill {
+    display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+  }
+  .st-done { background: var(--ok-soft); color: var(--ok); }
+  .st-next { background: var(--warn-soft); color: var(--warn); }
+  .st-later { background: var(--surface-2); color: var(--ink-soft); }
+
+  /* ── code blocks ── */
+  pre.code {
+    background: var(--code-bg); color: var(--code-ink); border-radius: 8px;
+    padding: 16px 18px; font-size: 13.5px; line-height: 1.7; overflow-x: auto;
+  }
+  pre.code .cmt { color: #7E93A0; }
+
+  /* ── flow map ── */
+  .flow-map {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px;
+    padding: 16px 18px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px 8px 0 0; border-bottom: none;
+  }
+  .flow-node {
+    font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .flow-node:hover { border-color: var(--accent); color: var(--accent); }
+  .flow-node.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .flow-sep { color: var(--ink-soft); font-size: 13px; padding: 0 2px; }
+  .flow-hint { width: 100%; font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* ── simulator ── */
+  .sim {
+    border: 1px solid var(--line); border-radius: 0 0 8px 8px;
+    background: var(--surface); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .sim-chrome {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line);
+  }
+  .sim-dots { display: flex; gap: 6px; }
+  .sim-dots span { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
+  .sim-url {
+    flex: 1; font-size: 12.5px; color: var(--ink-soft); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sim-role { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+  .sim-role button {
+    border: none; background: var(--surface); color: var(--ink-soft);
+    font-size: 12px; font-weight: 700; padding: 4px 10px; cursor: pointer;
+  }
+  .sim-role button.on { background: var(--accent); color: #fff; }
+
+  .sim-nav { display: flex; gap: 4px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  .sim-nav button {
+    border: none; background: none; color: var(--ink-soft); font-size: 13.5px;
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600;
+  }
+  .sim-nav button:hover { background: var(--surface-2); }
+  .sim-nav button.active { color: var(--accent); background: var(--accent-soft); }
+  .sim[data-screen="scr-login"] .sim-nav { display: none; }
+
+  .sim-body { padding: 20px 22px 26px; min-height: 380px; }
+  .screen { display: none; }
+  .screen.active { display: block; animation: fadein 0.18s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .screen h4 { font-size: 18px; margin-bottom: 4px; }
+  .screen-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .screen .meta { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 14px; }
+  .screen h5 { font-size: 14px; margin: 20px 0 8px; color: var(--ink-soft); }
+  .back-link {
+    background: none; border: none; color: var(--accent); font-size: 13px;
+    cursor: pointer; padding: 0; margin-bottom: 10px; display: inline-block;
+  }
+
+  table.sim-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.sim-table th, table.sim-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+  table.sim-table th { font-size: 12px; color: var(--ink-soft); background: var(--surface-2); }
+  table.sim-table td.num, table.sim-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.rowlink { cursor: pointer; }
+  tr.rowlink:hover td { background: var(--accent-soft); }
+  tr.rowlink td:first-child { color: var(--accent); font-weight: 600; }
+  .warn-text { color: var(--crit); font-weight: 700; }
+  .pill {
+    display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  }
+  .pill-ok { background: var(--ok-soft); color: var(--ok); }
+  .pill-warn { background: var(--warn-soft); color: var(--warn); }
+  .pill-crit { background: var(--crit-soft); color: var(--crit); }
+  .disk-bar { height: 9px; background: var(--surface-2); border-radius: 5px; overflow: hidden; min-width: 120px; }
+  .disk-fill { height: 100%; background: var(--accent); border-radius: 5px; }
+  .disk-fill.disk-warn { background: var(--crit); }
+  .mini-charts { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; }
+  .mini-charts figure { flex: 1; min-width: 240px; margin: 0; }
+  .mini-charts figcaption { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .mini-charts svg { width: 100%; height: auto; display: block; }
+
+  /* login screen */
+  .login-box { max-width: 320px; margin: 40px auto; display: flex; flex-direction: column; gap: 12px; }
+  .login-box h4 { text-align: center; margin-bottom: 6px; }
+  .login-box label { font-size: 13px; color: var(--ink-soft); display: flex; flex-direction: column; gap: 4px; }
+  .login-box input {
+    padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); color: var(--ink); font-size: 14px;
+  }
+  .login-box input:focus, .modal input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn {
+    padding: 9px 16px; border: none; border-radius: 6px; cursor: pointer;
+    background: var(--accent); color: #fff; font-size: 14px; font-weight: 700;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-ghost {
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  }
+  .btn-crit { background: var(--crit); }
+  .login-note { font-size: 12px; color: var(--ink-soft); text-align: center; }
+
+  /* action bar (phase 3 preview) */
+  .action-bar {
+    margin-top: 18px; padding: 12px 14px; border: 1px dashed var(--warn);
+    border-radius: 8px; background: var(--warn-soft);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .action-bar .lbl { font-size: 12.5px; color: var(--warn); font-weight: 700; }
+  .sim[data-role="DEVELOPER"] .admin-only { display: none; }
+  .dev-hint { display: none; font-size: 13px; color: var(--ink-soft); }
+  .sim[data-role="DEVELOPER"] .dev-hint { display: block; }
+
+  /* chart */
+  .chart-wrap { overflow-x: auto; }
+  .chart-wrap svg { display: block; min-width: 560px; width: 100%; height: auto; }
+  .chart-line { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .chart-area { fill: var(--accent); opacity: 0.12; }
+  .chart-grid { stroke: var(--line); stroke-width: 1; }
+  .chart-thresh { stroke: var(--crit); stroke-width: 1; stroke-dasharray: 5 4; }
+  .chart-dot { fill: var(--accent); }
+  .chart-label { font-size: 11px; fill: var(--ink-soft); font-family: ui-monospace, Menlo, monospace; }
+  .chart-label.crit { fill: var(--crit); }
+
+  /* modal */
+  .modal-veil {
+    display: none; position: absolute; inset: 0; background: rgba(10, 18, 23, 0.55);
+    align-items: center; justify-content: center; padding: 20px; z-index: 5;
+  }
+  .modal-veil.open { display: flex; }
+  .sim-stage { position: relative; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    max-width: 460px; width: 100%; padding: 22px 24px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .modal h4 { font-size: 16px; }
+  .modal .impact {
+    background: var(--surface-2); border-radius: 8px; padding: 12px 14px;
+    font-size: 13.5px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .modal .impact .row { display: flex; justify-content: space-between; gap: 12px; }
+  .modal .impact .row span:first-child { color: var(--ink-soft); }
+  .modal .caution { font-size: 13px; color: var(--crit); font-weight: 600; }
+  .modal label { font-size: 13px; color: var(--ink-soft); display: flex; flex-direction: column; gap: 6px; }
+  .modal input {
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); color: var(--ink); font-size: 14px;
+  }
+  .modal .btns { display: flex; justify-content: flex-end; gap: 8px; }
+  .modal .done-msg {
+    display: none; background: var(--ok-soft); color: var(--ok);
+    border-radius: 8px; padding: 10px 14px; font-size: 13.5px; font-weight: 600;
+  }
+  .modal.finished .done-msg { display: block; }
+
+  /* toast */
+  #toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--bg); font-size: 13.5px; font-weight: 600;
+    padding: 10px 18px; border-radius: 8px; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s; z-index: 50; box-shadow: var(--shadow);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer.doc-foot {
+    margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line);
+    font-size: 13.5px; color: var(--ink-soft);
+  }
+  footer.doc-foot ul { padding-left: 18px; margin-top: 8px; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main class="doc">
+
+  <header class="hero">
+    <div class="hero-top">
+      <div>
+        <p class="eyebrow">kafka-admin · 프로젝트 안내서</p>
+        <h1>Kafka 클러스터 관리자 사이트</h1>
+      </div>
+      <button id="theme-toggle" type="button">테마 전환</button>
+    </div>
+    <p class="lede">
+      3노드 KRaft 클러스터(SASL_SSL)를 감시하고 조치하는 사내 관리자 사이트.
+      기성 도구가 지원하지 않는 알림·인증서 만료 감시·복구 조치·승인 워크플로우를 직접 구현한다.
+    </p>
+    <div class="chips">
+      <span class="chip">Spring Boot 4.1 · Java 21</span>
+      <span class="chip">Vue 3 + TypeScript</span>
+      <span class="chip">kafka-clients 4.2.x</span>
+      <span class="chip">H2 (파일 모드)</span>
+      <span class="chip">Nginx + docker-compose</span>
+    </div>
+  </header>
+
+  <!-- ══════════════ 목적과 의도 ══════════════ -->
+  <section id="purpose">
+    <h2>목적과 의도</h2>
+    <p class="sub">
+      Kafbat UI 같은 기성 도구를 쓰지 않고 전부 직접 개발한다.
+      실제로 필요한 기능 — 임계치 알림, 인증서 만료 감시, 반자동 복구 조치, 토픽 신청 워크플로우 —
+      이 기성 도구가 지원하지 않는 영역에 몰려 있기 때문이다.
+    </p>
+
+    <div class="grid-2" style="margin-bottom: 22px;">
+      <div class="card">
+        <span class="role-tag role-admin">ADMIN — 운영자</span>
+        <p>클러스터 모니터링, 장애 감지·알림 수신, <strong>복구 조치 실행</strong>까지 전 권한.
+        오프셋 리셋·설정 변경 같은 위험 작업은 ADMIN만 가능하다.</p>
+      </div>
+      <div class="card">
+        <span class="role-tag role-dev">DEVELOPER — 개발자</span>
+        <p>토픽/컨슈머 그룹 <strong>조회</strong>와 토픽 생성 <strong>신청</strong>까지.
+        조치 버튼은 화면에서 아예 보이지 않는다.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>설계의 중심 규칙 — 안전장치</h3>
+      <ul class="rules" style="margin-top: 12px;">
+        <li><span><strong>위험 작업은 반드시 ops 모듈 경유.</strong> 컨트롤러가 kafka 모듈을 직접 호출해 조치하는 경로는 금지한다.</span></li>
+        <li><span><strong>실행 전 영향 요약 + 확인 절차, 실행 후 감사 로그</strong>(누가·언제·무엇을·결과)를 강제한다.</span></li>
+        <li><span><strong>자동 복구는 하지 않는다.</strong> 감지 → 알림 → 사람 확인 → 실행의 반자동 구조.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ══════════════ 아키텍처 ══════════════ -->
+  <section id="arch">
+    <h2>아키텍처</h2>
+    <p class="sub">
+      관리용 VM 1대에 컨테이너 2개(web, was)를 docker-compose로 배포한다.
+      브로커 장애 시 관리 도구가 함께 죽지 않도록 브로커 서버와 분리된 VM을 쓴다.
+    </p>
+    <div class="arch">
+      <div class="arch-node">
+        <div class="t">브라우저</div>
+        <div class="d">Vue SPA — 외부에서 접근하는 유일한 경로는 Nginx(80/443)</div>
+      </div>
+      <div class="arch-arrow">정적 파일 + /api/* 리버스 프록시</div>
+      <div class="arch-node">
+        <div class="t">web — Nginx 컨테이너</div>
+        <div class="d">Vue 빌드 결과물 서빙, /api/*는 WAS로 프록시, 나머지는 index.html 폴백</div>
+      </div>
+      <div class="arch-arrow">내부 전용</div>
+      <div class="arch-node">
+        <div class="t">was — Spring Boot 컨테이너</div>
+        <div class="d">REST API · 60초 지표 수집 스케줄러 · 알림 평가 · H2(파일 모드, 볼륨 마운트)</div>
+      </div>
+      <div class="arch-arrow">SASL_SSL :9094 (브로커 3대 전부 방화벽 개방)</div>
+      <div class="arch-node broker">
+        <div class="t">Kafka 브로커 × 3 (KRaft)</div>
+        <div class="d">전용 admin SCRAM 계정 + truststore로 접속</div>
+      </div>
+    </div>
+    <p class="arch-note">
+      외부 모니터링 스택(Prometheus 등) 없이 앱 내 스케줄러로 수집한다 — 규모 대비 단순함을 우선한 선택.
+    </p>
+  </section>
+
+  <!-- ══════════════ 주요 기능 ══════════════ -->
+  <section id="features">
+    <h2>주요 기능</h2>
+    <p class="sub">1·2단계는 구현 완료, 3단계(조치·알림 발송)는 착수 문서까지 준비된 상태다.</p>
+    <div class="grid-3">
+      <div class="card feat">
+        <div class="feat-head"><h3>클러스터·토픽·그룹 조회</h3><span class="phase-pill phase-done">1단계 완료</span></div>
+        <p>브로커·컨트롤러, 토픽/파티션/ISR, 컨슈머 그룹과 파티션별 랙을 실시간 조회.
+        브로커 무응답 시에도 사이트는 동작하고 503 "브로커 접속 불가"로 표시한다.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-head"><h3>세션 로그인 + 역할</h3><span class="phase-pill phase-done">1단계 완료</span></div>
+        <p>Spring Security 세션 방식. ADMIN/DEVELOPER 역할 분리.
+        최초 기동 시 사용자가 0명이면 admin 계정이 자동 생성된다.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-head"><h3>지표 수집 → 이력</h3><span class="phase-pill phase-done">2단계 완료</span></div>
+        <p>60초마다 랙·URP·디스크·브로커 수를 수집해 H2에 7일 보존.
+        화면의 추이 그래프는 이 이력을, 현재 상태 카드는 실시간 조회를 쓴다.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-head"><h3>임계치 알림</h3><span class="phase-pill phase-done">2단계 완료</span></div>
+        <p>임계치 초과·수집 3회 연속 실패를 알림 이력으로 기록, 30분 쿨다운으로 중복 억제.
+        발송 채널(웹훅 등)은 3단계에서 연결한다.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-head"><h3>인증서 만료 감시</h3><span class="phase-pill phase-done">2단계 완료</span></div>
+        <p>SASL_SSL 인증서를 매일 점검해 만료 D-30 이내면 경고.
+        기성 도구가 못 하는 대표 기능.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-head"><h3>메시지 열람 · 소비 내역</h3><span class="phase-pill phase-done">완료 (앞당김)</span></div>
+        <p>토픽의 최근 메시지(키·값·오프셋)를 최신순으로 열람하고,
+        그룹이 언제 어느 토픽에서 몇 건 가져왔는지 소비 내역으로 확인.
+        그룹 없이 읽는 순수 조회라 기존 컨슈머에 영향이 없다.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-head"><h3>복구 조치 실행기</h3><span class="phase-pill phase-next">3단계 예정</span></div>
+        <p>오프셋 리셋 · retention 변경 · 파티션 증가 · 리더 선출 · 재할당 · 복제 스로틀.
+        영향 요약 → 확인 → 실행 → 감사 로그의 반자동 구조.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 화면 흐름 시뮬레이터 ══════════════ -->
+  <section id="flow">
+    <h2>화면 흐름 시뮬레이터</h2>
+    <p class="sub">
+      실제 화면 구성을 예시 데이터로 재현했다. 흐름도의 노드나 시뮬레이터 안의 메뉴·행을 직접 클릭해 보자.
+      우측 상단에서 역할을 DEVELOPER로 바꾸면 조치 버튼이 사라지는 것도 확인할 수 있다.
+    </p>
+
+    <div class="flow-map" role="group" aria-label="화면 흐름도">
+      <button class="flow-node" data-go="scr-login">로그인</button>
+      <span class="flow-sep">→</span>
+      <button class="flow-node" data-go="scr-cluster">클러스터</button>
+      <span class="flow-sep">·</span>
+      <button class="flow-node" data-go="scr-topics">토픽</button>
+      <span class="flow-sep">→</span>
+      <button class="flow-node" data-go="scr-topic-detail">토픽 상세</button>
+      <span class="flow-sep">·</span>
+      <button class="flow-node" data-go="scr-groups">컨슈머 그룹</button>
+      <span class="flow-sep">→</span>
+      <button class="flow-node" data-go="scr-group-detail">그룹 상세</button>
+      <span class="flow-sep">·</span>
+      <button class="flow-node" data-go="scr-alerts">알림</button>
+      <p class="flow-hint">미로그인 상태로 어느 경로에 들어와도 라우터 가드가 /login으로 보낸다. 로그인 후에는 상단 메뉴로 자유 이동.</p>
+    </div>
+
+    <div class="sim" id="sim" data-screen="scr-login" data-role="ADMIN">
+      <div class="sim-chrome">
+        <div class="sim-dots"><span></span><span></span><span></span></div>
+        <div class="sim-url" id="sim-url">https://kafka-admin.internal/login</div>
+        <div class="sim-role" role="group" aria-label="역할 전환">
+          <button type="button" id="role-admin" class="on">ADMIN</button>
+          <button type="button" id="role-dev">DEVELOPER</button>
+        </div>
+      </div>
+      <nav class="sim-nav">
+        <button data-go="scr-cluster">클러스터</button>
+        <button data-go="scr-topics">토픽</button>
+        <button data-go="scr-groups">컨슈머 그룹</button>
+        <button data-go="scr-alerts">알림</button>
+      </nav>
+
+      <div class="sim-stage">
+      <div class="sim-body">
+
+        <!-- 로그인 -->
+        <div class="screen active" id="scr-login" data-url="https://kafka-admin.internal/login">
+          <div class="login-box">
+            <h4>kafka-admin 로그인</h4>
+            <label>아이디 <input type="text" value="admin" readonly></label>
+            <label>비밀번호 <input type="password" value="********" readonly></label>
+            <button class="btn" type="button" data-go="scr-cluster">로그인</button>
+            <p class="login-note">최초 기동 시 admin 계정이 $ADMIN_INITIAL_PASSWORD 값으로 생성된다.</p>
+          </div>
+        </div>
+
+        <!-- 클러스터 -->
+        <div class="screen" id="scr-cluster" data-url="https://kafka-admin.internal/">
+          <h4>클러스터</h4>
+          <p class="meta">Cluster ID: <span class="mono">MkU3OEVBNTcwNTJENDM2Qk</span></p>
+          <table class="sim-table">
+            <thead><tr><th>브로커 ID</th><th>주소</th><th>역할</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td class="mono">kafka1:9094</td><td><span class="pill pill-ok">컨트롤러</span></td></tr>
+              <tr><td>2</td><td class="mono">kafka2:9094</td><td></td></tr>
+              <tr><td>3</td><td class="mono">kafka3:9094</td><td></td></tr>
+            </tbody>
+          </table>
+          <h5>감시 상태</h5>
+          <p class="meta">마지막 수집: 오늘 14:32:00 · 연속 실패 0회</p>
+          <table class="sim-table">
+            <thead><tr><th>브로커</th><th>인증서 만료</th><th class="num">남은 일수</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">kafka1:9094</td><td>2027-02-11</td><td class="num">D-186</td></tr>
+              <tr><td class="mono">kafka2:9094</td><td>2027-02-11</td><td class="num">D-186</td></tr>
+              <tr><td class="mono">kafka3:9094</td><td>2026-09-02</td><td class="num warn-text">D-24</td></tr>
+            </tbody>
+          </table>
+          <h5>디스크 사용량</h5>
+          <table class="sim-table">
+            <thead><tr><th>브로커</th><th class="num">사용률</th><th style="width: 40%;"></th></tr></thead>
+            <tbody>
+              <tr>
+                <td>1</td><td class="num">42.5%</td>
+                <td><div class="disk-bar"><div class="disk-fill" style="width: 42.5%;"></div></div></td>
+              </tr>
+              <tr>
+                <td>2</td><td class="num">57.8%</td>
+                <td><div class="disk-bar"><div class="disk-fill" style="width: 57.8%;"></div></div></td>
+              </tr>
+              <tr>
+                <td>3</td><td class="num warn-text">81.3%</td>
+                <td><div class="disk-bar"><div class="disk-fill disk-warn" style="width: 81.3%;"></div></div></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="meta" style="margin-top: 8px;">
+            임계치 80% 초과 시 알림이 발생한다. 브로커 3처럼 급증했다면 retention 축소(3단계 조치)가 응급 대응이다.
+          </p>
+          <div class="mini-charts">
+            <figure>
+              <figcaption>미복제 파티션(URP) 추이 — 24시간</figcaption>
+              <svg viewBox="0 0 280 92" role="img" aria-label="URP 추이. 0을 유지하다 어제 밤부터 1이 됐다.">
+                <line class="chart-grid" x1="8" y1="84" x2="272" y2="84"></line>
+                <polyline class="chart-line" points="8,78 196,78 206,14 272,14"></polyline>
+                <circle class="chart-dot" cx="272" cy="14" r="3"></circle>
+                <text class="chart-label crit" x="240" y="30">현재 1</text>
+              </svg>
+            </figure>
+            <figure>
+              <figcaption>디스크 사용률 추이 — 브로커 3, 24시간</figcaption>
+              <svg viewBox="0 0 280 92" role="img" aria-label="브로커 3 디스크 추이. 62%에서 81%로 꾸준히 상승해 임계 80%를 넘었다.">
+                <line class="chart-grid" x1="8" y1="84" x2="272" y2="84"></line>
+                <line class="chart-thresh" x1="8" y1="24" x2="272" y2="24"></line>
+                <text class="chart-label crit" x="12" y="20">임계 80%</text>
+                <polyline class="chart-line" points="8,38 74,34 140,29 206,26 272,23"></polyline>
+                <circle class="chart-dot" cx="272" cy="23" r="3"></circle>
+                <text class="chart-label" x="230" y="40">81.3%</text>
+              </svg>
+            </figure>
+          </div>
+          <p class="meta">
+            URP가 0에서 1이 된 시점과 파티션 2의 ISR 이탈, 어제 22:41의 URP 알림이 같은 사건이다 —
+            추이 차트는 이렇게 "언제부터"를 알려준다.
+          </p>
+        </div>
+
+        <!-- 토픽 목록 -->
+        <div class="screen" id="scr-topics" data-url="https://kafka-admin.internal/topics">
+          <h4>토픽</h4>
+          <p class="meta">행을 클릭하면 상세 화면으로 이동한다.</p>
+          <table class="sim-table">
+            <thead><tr><th>이름</th><th class="num">파티션</th><th class="num">복제 팩터</th></tr></thead>
+            <tbody>
+              <tr class="rowlink" data-go="scr-topic-detail"><td class="mono">order-events</td><td class="num">12</td><td class="num">3</td></tr>
+              <tr class="rowlink" data-go="scr-topic-detail"><td class="mono">payment-events</td><td class="num">6</td><td class="num">3</td></tr>
+              <tr class="rowlink" data-go="scr-topic-detail"><td class="mono">shipment-events</td><td class="num">6</td><td class="num">3</td></tr>
+              <tr class="rowlink" data-go="scr-topic-detail"><td class="mono">audit-log</td><td class="num">3</td><td class="num">3</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 토픽 상세 -->
+        <div class="screen" id="scr-topic-detail" data-url="https://kafka-admin.internal/topics/order-events">
+          <button class="back-link" type="button" data-go="scr-topics">← 토픽 목록</button>
+          <h4>토픽: <span class="mono">order-events</span></h4>
+          <p class="meta">파티션 12 · 복제 팩터 3 · <span class="mono">retention.ms=604800000</span> (7일)</p>
+          <table class="sim-table">
+            <thead><tr><th class="num">파티션</th><th class="num">리더</th><th>레플리카</th><th>ISR</th><th class="num">최신 오프셋</th></tr></thead>
+            <tbody>
+              <tr><td class="num">0</td><td class="num">1</td><td class="mono">1, 2, 3</td><td class="mono">1, 2, 3</td><td class="num">1,204,331</td></tr>
+              <tr><td class="num">1</td><td class="num">2</td><td class="mono">2, 3, 1</td><td class="mono">2, 3, 1</td><td class="num">1,198,442</td></tr>
+              <tr><td class="num">2</td><td class="num">3</td><td class="mono">3, 1, 2</td><td class="mono warn-text">3, 1</td><td class="num">1,201,976</td></tr>
+              <tr><td class="num">3</td><td class="num">1</td><td class="mono">1, 3, 2</td><td class="mono">1, 3, 2</td><td class="num">1,199,850</td></tr>
+            </tbody>
+          </table>
+          <p class="meta" style="margin-top: 8px;">파티션 2는 ISR에서 브로커 2가 빠져 있다 — URP 지표로 수집되어 임계치 초과 시 알림 대상이 된다.</p>
+          <h5>최근 메시지 <span style="font-weight: normal;">— 최신순, 그룹 없이 읽어 컨슈머에 영향 없음</span></h5>
+          <table class="sim-table">
+            <thead><tr><th>시각</th><th class="num">파티션</th><th class="num">오프셋</th><th>키</th><th>값</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>14:32:05</td><td class="num">0</td><td class="num">1,204,330</td>
+                <td class="mono">ORD-8F2A1C</td><td class="mono">{"type":"ORDER_COMPLETED","orderId":"ORD-8F2A1C",…}</td>
+              </tr>
+              <tr>
+                <td>14:32:04</td><td class="num">0</td><td class="num">1,204,329</td>
+                <td class="mono">ORD-8F2A1C</td><td class="mono">{"type":"ORDER_CREATED","orderId":"ORD-8F2A1C",…}</td>
+              </tr>
+              <tr>
+                <td>14:32:01</td><td class="num">2</td><td class="num">1,201,975</td>
+                <td class="mono">ORD-3B9D07</td><td class="mono">{"type":"ORDER_CREATED","orderId":"ORD-3B9D07",…}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="meta">오프셋은 파티션 안의 일련번호(주소)라 파티션이 다르면 겹칠 수 있다. 값은 1,000자까지 표시.</p>
+          <p class="meta">
+            <strong>순서 보장은 파티션 안에서만</strong> 성립한다 — 같은 키 <span class="mono">ORD-8F2A1C</span>의
+            CREATED(오프셋 1,204,329) → COMPLETED(1,204,330)가 같은 파티션 0에 순서대로 쌓인 것이 그 실례다.
+            같은 키는 항상 같은 파티션으로 가므로 "주문 하나 안의 순서"는 키만으로 보장되고,
+            다른 키(<span class="mono">ORD-3B9D07</span>, 파티션 2)와의 선후는 정의되지 않는다.
+            단, 파티션을 늘리면 키→파티션 매핑이 바뀌어 이 보장이 잠시 흔들린다 — 3단계 "파티션 증가" 조치에
+            경고를 붙이는 이유다.
+          </p>
+          <div class="action-bar admin-only">
+            <span class="lbl">3단계 예정</span>
+            <button class="btn btn-ghost" type="button" disabled>retention 변경</button>
+            <button class="btn btn-ghost" type="button" disabled>파티션 증가</button>
+            <button class="btn btn-ghost" type="button" disabled>preferred 리더 선출</button>
+          </div>
+          <p class="dev-hint">DEVELOPER 역할에는 조치 영역이 표시되지 않는다.</p>
+        </div>
+
+        <!-- 그룹 목록 -->
+        <div class="screen" id="scr-groups" data-url="https://kafka-admin.internal/groups">
+          <h4>컨슈머 그룹</h4>
+          <p class="meta">행을 클릭하면 파티션별 랙과 24시간 추이를 볼 수 있다.</p>
+          <table class="sim-table">
+            <thead><tr><th>그룹 ID</th><th>상태</th><th class="num">총 랙</th></tr></thead>
+            <tbody>
+              <tr class="rowlink" data-go="scr-group-detail"><td class="mono">order-settlement</td><td><span class="pill pill-ok">Stable</span></td><td class="num warn-text">1,284</td></tr>
+              <tr class="rowlink" data-go="scr-group-detail"><td class="mono">order-statistics</td><td><span class="pill pill-ok">Stable</span></td><td class="num">3</td></tr>
+              <tr class="rowlink" data-go="scr-group-detail"><td class="mono">shipment-tracker</td><td><span class="pill pill-ok">Stable</span></td><td class="num">0</td></tr>
+              <tr class="rowlink" data-go="scr-group-detail"><td class="mono">payment-recon</td><td><span class="pill pill-warn">Empty</span></td><td class="num">342</td></tr>
+            </tbody>
+          </table>
+          <p class="meta" style="margin-top: 8px;">
+            <span class="mono">order-settlement</span>(정산)과 <span class="mono">order-statistics</span>(통계)는
+            <strong>같은 order-events 토픽</strong>을 서로 다른 그룹 ID로 각자 전부 소비한다(팬아웃).
+            그룹마다 커밋 오프셋(책갈피)이 따로라서 정산이 랙 1,284로 밀려도 통계는 영향이 없다.
+            반대로 다른 앱이 <strong>같은</strong> 그룹 ID를 쓰면 메시지가 앱들 사이에 쪼개지는 사고가 되므로,
+            그룹 ID는 서비스 이름 기준으로 짓는다.
+          </p>
+        </div>
+
+        <!-- 그룹 상세 -->
+        <div class="screen" id="scr-group-detail" data-url="https://kafka-admin.internal/groups/order-settlement">
+          <button class="back-link" type="button" data-go="scr-groups">← 그룹 목록</button>
+          <div class="screen-head">
+            <h4>그룹: <span class="mono">order-settlement</span></h4>
+            <button class="btn btn-ghost" type="button" id="open-lag-help">랙이란?</button>
+          </div>
+          <p class="meta">상태: Stable · 총 랙: <strong>1,284</strong></p>
+          <h5>멤버 (2) — 개별 컨슈머 인스턴스와 담당 파티션</h5>
+          <table class="sim-table">
+            <thead><tr><th>클라이언트 ID</th><th>호스트</th><th>담당 파티션</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono">settlement-app-1</td><td class="mono">/10.0.2.11</td>
+                <td class="mono">order-events-0, order-events-1</td>
+              </tr>
+              <tr>
+                <td class="mono">settlement-app-2</td><td class="mono">/10.0.2.12</td>
+                <td class="mono">order-events-2, order-events-3</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="meta">
+            멤버별 담당은 0,1 / 2,3으로 나뉘지만 <strong>합치면 파티션 4개 전부</strong>다 —
+            "전부 받는" 주체는 개별 인스턴스가 아니라 그룹(앱 전체)이고, 나눠 받는 것이 곧 병렬 처리다.
+            문제 신호는 담당이 나뉜 것이 아니라 <strong>어느 멤버의 담당에도 없는 파티션</strong>이 생기는 것.
+            멤버는 일시적 존재라 재시작·리밸런스마다 바뀌며, 커밋 오프셋(책갈피)의 주인은 멤버가 아니라 그룹이다.
+            특정 파티션만 랙이 쌓이면 이 표에서 그 파티션을 잡은 인스턴스를 바로 찾을 수 있고,
+            클라이언트 ID·호스트 패턴이 서로 다른 멤버가 섞여 있다면 다른 앱이 같은 그룹 ID를 쓰는
+            사고(그룹 ID 충돌)를 의심할 수 있다.
+          </p>
+          <h5>최근 24시간 랙 추이</h5>
+          <div class="chart-wrap">
+            <svg viewBox="0 0 600 140" role="img" aria-label="최근 24시간 랙 추이 차트. 오후에 12,400까지 치솟은 뒤 1,284로 내려왔다.">
+              <line class="chart-grid" x1="10" y1="10" x2="562" y2="10"></line>
+              <line class="chart-grid" x1="10" y1="122" x2="562" y2="122"></line>
+              <line class="chart-thresh" x1="10" y1="70" x2="562" y2="70"></line>
+              <text class="chart-label crit" x="14" y="66">임계 5,000</text>
+              <text class="chart-label" x="14" y="24">최고 12,400</text>
+              <polygon class="chart-area" points="10,84 34,83 58,79 82,68 106,45 130,10 154,15 178,33 202,51 226,66 250,77 274,83 298,89 322,93 346,95 370,97 394,98 418,98 442,99 466,99 490,99 514,100 538,100 562,100 562,122 10,122"></polygon>
+              <polyline class="chart-line" points="10,84 34,83 58,79 82,68 106,45 130,10 154,15 178,33 202,51 226,66 250,77 274,83 298,89 322,93 346,95 370,97 394,98 418,98 442,99 466,99 490,99 514,100 538,100 562,100"></polyline>
+              <circle class="chart-dot" cx="562" cy="100" r="3.5"></circle>
+              <text class="chart-label" x="530" y="94">1,284</text>
+            </svg>
+          </div>
+          <p class="meta">14시경 임계치(5,000)를 넘어 알림이 발생했고, 컨슈머 재기동 후 해소 중이다. 이 이력이 알림 화면에 남는다.</p>
+          <table class="sim-table">
+            <thead><tr><th>토픽</th><th class="num">파티션</th><th class="num">커밋 오프셋</th><th class="num">최신 오프셋</th><th class="num">랙</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">order-events</td><td class="num">0</td><td class="num">1,203,910</td><td class="num">1,204,331</td><td class="num warn-text">421</td></tr>
+              <tr><td class="mono">order-events</td><td class="num">1</td><td class="num">1,198,442</td><td class="num">1,198,442</td><td class="num">0</td></tr>
+              <tr><td class="mono">order-events</td><td class="num">2</td><td class="num">1,201,463</td><td class="num">1,201,976</td><td class="num warn-text">513</td></tr>
+              <tr><td class="mono">order-events</td><td class="num">3</td><td class="num">1,199,500</td><td class="num">1,199,850</td><td class="num warn-text">350</td></tr>
+            </tbody>
+          </table>
+          <div class="mini-charts">
+            <figure>
+              <figcaption>시간대별 소비량 — 커밋 오프셋 증가분(=소비한 메시지 수)</figcaption>
+              <table class="sim-table">
+                <thead><tr><th>시간대</th><th class="num">소비 건수</th></tr></thead>
+                <tbody>
+                  <tr><td>8/9 14:00~</td><td class="num">21,480</td></tr>
+                  <tr><td>8/9 13:00~</td><td class="num">9,320</td></tr>
+                  <tr><td>8/9 12:00~</td><td class="num">8,910</td></tr>
+                </tbody>
+              </table>
+            </figure>
+            <figure>
+              <figcaption>최근 소비 내역 — 언제 어느 토픽에서 몇 건 (60초 수집 단위)</figcaption>
+              <table class="sim-table">
+                <thead><tr><th>시각</th><th>토픽</th><th class="num">가져온 건수</th></tr></thead>
+                <tbody>
+                  <tr><td>14:32:00</td><td class="mono">order-events</td><td class="num">342</td></tr>
+                  <tr><td>14:31:00</td><td class="mono">order-events</td><td class="num">415</td></tr>
+                  <tr><td>14:30:00</td><td class="mono">order-events</td><td class="num">388</td></tr>
+                </tbody>
+              </table>
+            </figure>
+          </div>
+          <p class="meta">
+            14시 소비량이 평소의 두 배가 넘는다 — 컨슈머 재기동 후 밀린 랙 12,400을 따라잡는 중이라는 뜻이고,
+            위 랙 추이 차트가 내려가는 것과 같은 사건이다. 건수는 모두 커밋 오프셋의 차이로 계산된다.
+          </p>
+          <div class="action-bar admin-only">
+            <span class="lbl">3단계 예정</span>
+            <button class="btn btn-crit" type="button" id="open-reset">오프셋 리셋…</button>
+            <span style="font-size: 12.5px; color: var(--ink-soft);">확인 절차 UX 미리보기 — 클릭해 보자</span>
+          </div>
+          <p class="dev-hint">DEVELOPER 역할에는 조치 영역이 표시되지 않는다.</p>
+        </div>
+
+        <!-- 알림 -->
+        <div class="screen" id="scr-alerts" data-url="https://kafka-admin.internal/alerts">
+          <h4>알림 이력</h4>
+          <p class="meta">임계치 초과·수집 실패·인증서 임박이 30분 쿨다운으로 기록된다. 발송 채널 연결은 3단계.</p>
+          <table class="sim-table">
+            <thead><tr><th>시각</th><th>유형</th><th>대상</th><th>내용</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>오늘 14:03</td><td><span class="pill pill-crit">LAG</span></td>
+                <td class="mono">order-settlement</td><td>랙 12,400 — 임계 5,000 초과</td>
+              </tr>
+              <tr>
+                <td>오늘 03:00</td><td><span class="pill pill-warn">CERT_EXPIRY</span></td>
+                <td class="mono">kafka3:9094</td><td>인증서 만료 D-24 (임계 D-30)</td>
+              </tr>
+              <tr>
+                <td>어제 22:41</td><td><span class="pill pill-warn">URP</span></td>
+                <td class="mono">order-events</td><td>미복제 파티션 1개 — 임계 0 초과</td>
+              </tr>
+              <tr>
+                <td>어제 09:12</td><td><span class="pill pill-crit">COLLECT_FAILURE</span></td>
+                <td class="mono">collector</td><td>지표 수집 3회 연속 실패 — 전면 장애 신호</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div><!-- /sim-body -->
+
+      <!-- 랙 안내 모달 -->
+      <div class="modal-veil" id="lag-veil">
+        <div class="modal">
+          <h4>랙(Lag) 이해하기</h4>
+          <p style="font-size: 13.5px; color: var(--ink-soft);">
+            랙은 <strong>컨슈머가 아직 읽지 못하고 밀려 있는 메시지 수</strong>다.
+          </p>
+          <p class="mono" style="font-size: 13px; background: var(--surface-2); border-radius: 6px; padding: 8px 12px;">
+            랙 = 최신 오프셋 − 커밋 오프셋
+          </p>
+          <ul style="font-size: 13.5px; color: var(--ink-soft); padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
+            <li><strong>0 또는 일정 유지</strong> — 정상. 소비가 생산을 따라잡는 중</li>
+            <li><strong>계속 증가</strong> — 컨슈머 장애·처리 지연·트래픽 급증 신호</li>
+            <li><strong>특정 파티션만 증가</strong> — 핫 파티션 또는 포이즌 메시지</li>
+          </ul>
+          <p style="font-size: 13.5px; color: var(--ink-soft);">
+            해결은 컨슈머 애플리케이션의 몫이다: ① 다운스트림 배치화 등 처리 최적화
+            ② 컨슈머 스케일 아웃(파티션 수 한도) ③ 리밸런스·설정 튜닝 ④ 키 재설계·DLQ.
+            이 사이트는 감지·진단까지만 담당한다.
+          </p>
+          <div class="btns">
+            <button class="btn btn-ghost" type="button" id="lag-close">닫기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 오프셋 리셋 확인 모달 (3단계 예정 UX) -->
+      <div class="modal-veil" id="reset-veil">
+        <div class="modal" id="reset-modal">
+          <h4>오프셋 리셋 — 실행 전 확인</h4>
+          <div class="impact">
+            <div class="row"><span>대상 그룹</span><span class="mono">order-settlement</span></div>
+            <div class="row"><span>대상 토픽</span><span class="mono">order-events (파티션 4개)</span></div>
+            <div class="row"><span>리셋 위치</span><span>latest (최신 오프셋)</span></div>
+            <div class="row"><span>예상 영향</span><span>미소비 메시지 1,284건 건너뜀</span></div>
+          </div>
+          <p class="caution">그룹이 활성 상태면 실행할 수 없다 — 컨슈머를 먼저 중지해야 한다.</p>
+          <label>계속하려면 그룹 ID를 입력
+            <input type="text" id="confirm-input" placeholder="order-settlement" autocomplete="off">
+          </label>
+          <p class="done-msg">실행 완료 — 감사 로그 #128 기록 (actor: admin, action: OFFSET_RESET)</p>
+          <div class="btns">
+            <button class="btn btn-ghost" type="button" id="reset-cancel">취소</button>
+            <button class="btn btn-crit" type="button" id="reset-exec" disabled>실행</button>
+          </div>
+        </div>
+      </div>
+
+      </div><!-- /sim-stage -->
+    </div><!-- /sim -->
+  </section>
+
+  <!-- ══════════════ 로드맵 ══════════════ -->
+  <section id="roadmap">
+    <h2>구축 단계</h2>
+    <p class="sub">각 단계는 그 자체로 사용 가능한 상태로 마무리한다.</p>
+    <div class="table-wrap">
+      <table class="doc-table">
+        <thead><tr><th style="width:60px;">단계</th><th>내용</th><th>완료 시 얻는 것</th><th style="width:90px;">상태</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>1</td><td>골격 + 조회 — 로그인, 클러스터/토픽/그룹/랙 조회</td>
+            <td>기성 도구 조회 기능 대체</td><td><span class="status-pill st-done">완료</span></td>
+          </tr>
+          <tr>
+            <td>2</td><td>지표 수집 + 알림 이력, 인증서 만료 감시, 랙 추이 차트</td>
+            <td>기성 도구가 못 하는 감시 체계</td><td><span class="status-pill st-done">완료</span></td>
+          </tr>
+          <tr>
+            <td>3</td><td>조치 실행기(오프셋 리셋·설정 변경·파티션 증가·리더 선출·재할당·스로틀) + 감사 로그 + 알림 발송(웹훅)</td>
+            <td>장애 대응 원클릭</td><td><span class="status-pill st-next">착수 문서</span></td>
+          </tr>
+          <tr>
+            <td>4</td><td>SSH 브로커 재시작, 토픽 신청/승인 워크플로우, 메시지 열람</td>
+            <td>셀프서비스 + 인프라 조작</td><td><span class="status-pill st-later">예정</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sub" style="margin-top: 14px;">
+      테스트: 백엔드 29건(Testcontainers 통합 테스트 포함) + 프론트 vitest 6건, 전부 통과 상태.
+    </p>
+  </section>
+
+  <!-- ══════════════ 실행 방법 ══════════════ -->
+  <section id="run">
+    <h2>실행 방법</h2>
+    <p class="sub">로컬 개발과 배포 두 경로. 최초 기동 시 사용자가 0명이면 admin 계정이 자동 생성된다.</p>
+    <h3>로컬 개발</h3>
+    <pre class="code"><span class="cmt"># 백엔드 (PLAINTEXT 로컬 브로커 기준)</span>
+cd was
+ADMIN_INITIAL_PASSWORD=devpw KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
+KAFKA_SECURITY_PROTOCOL=PLAINTEXT ./gradlew bootRun
+
+<span class="cmt"># 프론트</span>
+cd web &amp;&amp; npm run dev</pre>
+    <h3 style="margin-top: 20px;">배포</h3>
+    <pre class="code">cd deploy
+cp .env.example .env   <span class="cmt"># 값을 채운다 (SCRAM 계정, truststore 비밀번호 등)</span>
+docker compose up -d --build</pre>
+  </section>
+
+  <footer class="doc-foot">
+    <p>이 안내서의 예시 데이터(토픽명·오프셋·알림)는 시연용이며 실제 클러스터 값이 아니다. 더 깊은 내용은 저장소 문서를 참고:</p>
+    <ul>
+      <li><a href="design.md">design.md</a> — 아키텍처, 모듈 구성, 보안, 구축 단계 (기준 문서)</li>
+      <li><a href="plan-phase1.md">plan-phase1.md</a> · <a href="plan-phase2.md">plan-phase2.md</a> — 1·2단계 실행 기록</li>
+      <li><a href="phase3-scope.md">phase3-scope.md</a> — 3단계 범위, 이월 항목, 선결 결정사항 5가지</li>
+    </ul>
+  </footer>
+
+</main>
+
+<div id="toast" role="status"></div>
+
+<script>
+(function () {
+  var sim = document.getElementById('sim');
+  var urlBar = document.getElementById('sim-url');
+  var toast = document.getElementById('toast');
+  var toastTimer = null;
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 2600);
+  }
+
+  function go(id) {
+    var target = document.getElementById(id);
+    if (!target) return;
+    var screens = sim.querySelectorAll('.screen');
+    for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
+    target.classList.add('active');
+    sim.dataset.screen = id;
+    urlBar.textContent = target.dataset.url || '';
+
+    var section = id;
+    if (id === 'scr-topic-detail') section = 'scr-topics';
+    if (id === 'scr-group-detail') section = 'scr-groups';
+    var navBtns = sim.querySelectorAll('.sim-nav button');
+    for (var j = 0; j < navBtns.length; j++)
+      navBtns[j].classList.toggle('active', navBtns[j].dataset.go === section);
+    var flowBtns = document.querySelectorAll('.flow-node');
+    for (var k = 0; k < flowBtns.length; k++)
+      flowBtns[k].classList.toggle('active', flowBtns[k].dataset.go === id);
+  }
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-go]');
+    if (el) go(el.dataset.go);
+  });
+
+  go('scr-login');
+
+  /* 역할 전환 */
+  var btnAdmin = document.getElementById('role-admin');
+  var btnDev = document.getElementById('role-dev');
+  function setRole(role) {
+    sim.dataset.role = role;
+    btnAdmin.classList.toggle('on', role === 'ADMIN');
+    btnDev.classList.toggle('on', role === 'DEVELOPER');
+    showToast(role === 'ADMIN'
+      ? 'ADMIN — 조치 영역이 표시된다'
+      : 'DEVELOPER — 조회 전용, 조치 버튼이 사라진다');
+  }
+  btnAdmin.addEventListener('click', function () { setRole('ADMIN'); });
+  btnDev.addEventListener('click', function () { setRole('DEVELOPER'); });
+
+  /* 오프셋 리셋 모달 (3단계 확인 절차 UX 데모) */
+  var veil = document.getElementById('reset-veil');
+  var modal = document.getElementById('reset-modal');
+  var confirmInput = document.getElementById('confirm-input');
+  var execBtn = document.getElementById('reset-exec');
+  var GROUP_ID = 'order-settlement';
+
+  document.getElementById('open-reset').addEventListener('click', function () {
+    modal.classList.remove('finished');
+    confirmInput.value = '';
+    confirmInput.disabled = false;
+    execBtn.disabled = true;
+    execBtn.textContent = '실행';
+    veil.classList.add('open');
+    confirmInput.focus();
+  });
+  confirmInput.addEventListener('input', function () {
+    execBtn.disabled = confirmInput.value.trim() !== GROUP_ID;
+  });
+  execBtn.addEventListener('click', function () {
+    modal.classList.add('finished');
+    execBtn.disabled = true;
+    execBtn.textContent = '완료';
+    confirmInput.disabled = true;
+    showToast('감사 로그에 기록됨 — 실제 기능은 3단계에서 구현');
+  });
+  document.getElementById('reset-cancel').addEventListener('click', function () {
+    veil.classList.remove('open');
+  });
+  veil.addEventListener('click', function (e) {
+    if (e.target === veil) veil.classList.remove('open');
+  });
+
+  /* 랙 안내 모달 */
+  var lagVeil = document.getElementById('lag-veil');
+  document.getElementById('open-lag-help').addEventListener('click', function () {
+    lagVeil.classList.add('open');
+  });
+  document.getElementById('lag-close').addEventListener('click', function () {
+    lagVeil.classList.remove('open');
+  });
+  lagVeil.addEventListener('click', function (e) {
+    if (e.target === lagVeil) lagVeil.classList.remove('open');
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      veil.classList.remove('open');
+      lagVeil.classList.remove('open');
+    }
+  });
+
+  /* 테마 전환 */
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    var root = document.documentElement;
+    var cur = root.dataset.theme ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+  });
+})();
+</script>
+</body>
+</html>
