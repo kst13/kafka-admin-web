@@ -2,7 +2,10 @@
 import { computed, ref } from 'vue'
 import { toPolyline } from '@/lib/trend'
 
-const props = defineProps<{ points: { t: string; v: number }[] }>()
+const props = withDefaults(
+  defineProps<{ points: { t: string; v: number }[]; label?: string }>(),
+  { label: '랙 추이 차트' },
+)
 
 const W = 320
 const H = 80
@@ -11,7 +14,7 @@ const hoverIndex = ref<number | null>(null)
 
 const values = computed(() => props.points.map((p) => p.v))
 const polyline = computed(() => toPolyline(values.value, W, H, PAD))
-const last = computed(() => props.points.at(-1))
+const last = computed(() => props.points[props.points.length - 1])
 const hovered = computed(() =>
   hoverIndex.value === null ? null : props.points[hoverIndex.value],
 )
@@ -45,17 +48,17 @@ function onMove(e: MouseEvent) {
     <svg
       :viewBox="`0 0 ${W} ${H}`"
       role="img"
-      aria-label="랙 추이 차트"
+      :aria-label="props.label"
       @mousemove="onMove"
       @mouseleave="hoverIndex = null"
     >
-      <polyline :points="polyline" fill="none" stroke="#1d4ed8" stroke-width="2" />
+      <polyline class="line" :points="polyline" fill="none" stroke-width="2" />
       <circle
         v-if="hoverIndex !== null"
+        class="dot"
         :cx="xOf(hoverIndex)"
         :cy="yOf(hoverIndex)"
         r="4"
-        fill="#1d4ed8"
       />
     </svg>
     <p class="reading">
@@ -69,6 +72,15 @@ function onMove(e: MouseEvent) {
 </template>
 
 <style scoped>
-.trend svg { width: 100%; max-width: 480px; display: block; }
-.reading { margin: 0.25rem 0 0; font-size: 0.85rem; color: #555; }
+.trend svg {
+  width: 100%;
+  max-width: 480px;
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.line { stroke: var(--accent); }
+.dot { fill: var(--accent); }
+.reading { margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--ink-soft); }
 </style>
