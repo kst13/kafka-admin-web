@@ -621,8 +621,8 @@
             </figure>
           </div>
           <p class="meta">
-            URP가 0에서 1이 된 시점과 파티션 2의 ISR 이탈, 어제 22:41의 URP 알림이 같은 사건이다 —
-            추이 차트는 이렇게 "언제부터"를 알려준다.
+            URP가 0에서 1이 된 시점과 파티션 2의 ISR 이탈이 같은 사건이다 —
+            추이 차트는 이렇게 "언제부터"를 알려준다. (URP는 이력으로만 수집되며 증감 알림은 이후 단계)
           </p>
         </div>
 
@@ -655,7 +655,7 @@
               <tr><td class="num">3</td><td class="num">1</td><td class="mono">1, 3, 2</td><td class="mono">1, 3, 2</td><td class="num">1,199,850</td></tr>
             </tbody>
           </table>
-          <p class="meta" style="margin-top: 8px;">파티션 2는 ISR에서 브로커 2가 빠져 있다 — URP 지표로 수집되어 임계치 초과 시 알림 대상이 된다.</p>
+          <p class="meta" style="margin-top: 8px;">파티션 2는 ISR에서 브로커 2가 빠져 있다 — URP 지표로 수집되어 클러스터 화면의 추이 차트에 남는다.</p>
           <h5>최근 메시지 <span style="font-weight: normal;">— 최신순, 그룹 없이 읽어 컨슈머에 영향 없음</span></h5>
           <table class="sim-table">
             <thead><tr><th>시각</th><th class="num">파티션</th><th class="num">오프셋</th><th>키</th><th>값</th></tr></thead>
@@ -813,19 +813,19 @@
             <thead><tr><th>시각</th><th>유형</th><th>대상</th><th>내용</th></tr></thead>
             <tbody>
               <tr>
-                <td>오늘 14:03</td><td><span class="pill pill-crit">LAG</span></td>
+                <td>오늘 14:03</td><td><span class="pill pill-crit">LAG_HIGH</span></td>
                 <td class="mono">order-settlement</td><td>랙 12,400 — 임계 5,000 초과</td>
+              </tr>
+              <tr>
+                <td>오늘 14:02</td><td><span class="pill pill-warn">DISK_HIGH</span></td>
+                <td class="mono">broker-3</td><td>디스크 사용률 81.3% — 임계 80% 초과</td>
               </tr>
               <tr>
                 <td>오늘 03:00</td><td><span class="pill pill-warn">CERT_EXPIRY</span></td>
                 <td class="mono">kafka3:9094</td><td>인증서 만료 D-24 (임계 D-30)</td>
               </tr>
               <tr>
-                <td>어제 22:41</td><td><span class="pill pill-warn">URP</span></td>
-                <td class="mono">order-events</td><td>미복제 파티션 1개 — 임계 0 초과</td>
-              </tr>
-              <tr>
-                <td>어제 09:12</td><td><span class="pill pill-crit">COLLECT_FAILURE</span></td>
+                <td>어제 09:12</td><td><span class="pill pill-crit">COLLECTOR_FAILURE</span></td>
                 <td class="mono">collector</td><td>지표 수집 3회 연속 실패 — 전면 장애 신호</td>
               </tr>
             </tbody>
@@ -907,7 +907,7 @@
             <td>장애 대응 원클릭</td><td><span class="status-pill st-next">착수 문서</span></td>
           </tr>
           <tr>
-            <td>4</td><td>SSH 브로커 재시작, 토픽 신청/승인 워크플로우, 메시지 열람</td>
+            <td>4</td><td>SSH 브로커 재시작, 토픽 신청/승인 워크플로우</td>
             <td>셀프서비스 + 인프라 조작</td><td><span class="status-pill st-later">예정</span></td>
           </tr>
         </tbody>
