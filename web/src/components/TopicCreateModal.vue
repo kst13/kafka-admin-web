@@ -3,7 +3,9 @@ import { ref, computed } from 'vue'
 import { api } from '@/api/client'
 import ModalDialog from './ModalDialog.vue'
 
-const emit = defineEmits<{ close: []; created: [] }>()
+export interface CreatedTopic { name: string; partitionCount: number; replicationFactor: number }
+
+const emit = defineEmits<{ close: []; created: [topic: CreatedTopic] }>()
 
 const name = ref('')
 const partitions = ref('3')
@@ -31,7 +33,11 @@ async function submit() {
         configs: retentionMs.value ? { 'retention.ms': String(retentionMs.value) } : undefined,
       }),
     })
-    emit('created')
+    emit('created', {
+      name: name.value,
+      partitionCount: Number(partitions.value),
+      replicationFactor: Number(replicationFactor.value),
+    })
   } catch (e) {
     error.value = e instanceof Error ? e.message : '생성 실패'
   } finally {

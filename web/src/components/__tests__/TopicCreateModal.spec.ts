@@ -27,6 +27,10 @@ describe('TopicCreateModal', () => {
     await flushPromises()
     expect(api).toHaveBeenCalledWith('/ops/topics', expect.objectContaining({ method: 'POST' }))
     expect(wrapper.emitted('created')).toHaveLength(1)
+    // 목록 화면이 즉시 반영할 수 있도록 생성한 토픽 요약을 함께 넘긴다
+    expect(wrapper.emitted('created')![0]).toEqual([
+      { name: 'orders', partitionCount: 6, replicationFactor: 3 },
+    ])
   })
 
   it('retention.ms 는 기본값 604800000(7일)이 채워져 있고 그대로 전송된다', async () => {

@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { api } from '@/api/client'
 import { useSession } from '@/composables/useSession'
-import TopicCreateModal from '@/components/TopicCreateModal.vue'
+import TopicCreateModal, { type CreatedTopic } from '@/components/TopicCreateModal.vue'
 
 interface TopicSummary { name: string; partitionCount: number; replicationFactor: number }
 
@@ -10,6 +10,8 @@ const topics = ref<TopicSummary[]>([])
 const error = ref('')
 const showCreate = ref(false)
 const { isAdmin } = useSession()
+
+const byName = (a: TopicSummary, b: TopicSummary) => a.name.localeCompare(b.name)
 
 async function loadTopics() {
   try {
@@ -20,9 +22,30 @@ async function loadTopics() {
 }
 onMounted(loadTopics)
 
-function onCreated() {
+// 생성 직후: 브로커별 메타데이터 전파 시차 때문에 곧바로 조회한 목록에 새 토픽이 빠질 수 있다.
+// 먼저 낙관적으로 표에 넣고, 서버 목록에 나타날 때까지 잠깐(최대 6회 x 500ms) 재조회한다.
+const REFRESH_ATTEMPTS = 6
+const REFRESH_INTERVAL_MS = 500
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+async function onCreated(created: CreatedTopic) {
   showCreate.value = false
-  loadTopics()
+  if (!topics.value.some((t) => t.name === created.name)) {
+    topics.value = [...topics.value, created].sort(byName)
+  }
+  for (let i = 0; i < REFRESH_ATTEMPTS; i++) {
+    try {
+      const list = await api<TopicSummary[]>('/topics')
+      if (list.some((t) => t.name === created.name)) {
+        topics.value = list
+        return
+      }
+      topics.value = [...list, created].sort(byName)
+    } catch {
+      // 일시적 조회 실패는 무시하고 다음 시도에서 다시 본다 (낙관적 표는 유지)
+    }
+    await sleep(REFRESH_INTERVAL_MS)
+  }
 }
 </script>
 
