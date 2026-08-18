@@ -11,7 +11,7 @@ services:
     volumes:
       - was-data:/data
       # SASL_SSL 접속 시 truststore 마운트:
-      # - ./secrets:/secrets:ro
+      - ./secrets:/secrets:ro
 
   web:
     build: ../web

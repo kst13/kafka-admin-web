@@ -36,3 +36,9 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// 로컬 실행 전용 설정: was/config/application-local.yml (gitignore) 을 읽는다.
+// 파일이 없으면 무시된다. 테스트 태스크에는 프로파일을 켜지 않아 로컬 설정이 새지 않는다.
+tasks.named('bootRun') {
+	systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')
+}

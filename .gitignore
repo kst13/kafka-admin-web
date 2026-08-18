@@ -6,3 +6,5 @@ web/dist/
 .env
 .superpowers/
 .worktrees/
+deploy/secrets/
+was/config/

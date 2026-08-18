@@ -29,6 +29,8 @@ ADMIN_INITIAL_PASSWORD=devpw KAFKA_BOOTSTRAP_SERVERS=localhost:9092 KAFKA_SECURI
 cd web && npm run dev
 ```
 
+환경변수 대신 `was/config/application-local.yml`(gitignore 대상)에 `app.kafka.*`, `app.admin-initial-password` 를 적어두면 `cd was && ./gradlew bootRun` 만으로 실행된다. bootRun 이 `local` 프로파일을 켜서 이 파일을 읽으며(IDE 실행 시엔 active profile 에 `local` 지정), 테스트에는 적용되지 않는다.
+
 ### 배포
 
 ```bash
