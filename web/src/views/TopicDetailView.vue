@@ -63,8 +63,8 @@ function onDeleted() {
     <div class="head-row">
       <h1>토픽: {{ route.params.name }}</h1>
       <div v-if="isAdmin && detail" class="actions">
-        <button type="button" @click="showEdit = true">설정 수정</button>
-        <button type="button" class="danger-outline" @click="showDelete = true">삭제</button>
+        <button type="button" class="btn" @click="showEdit = true">설정 수정</button>
+        <button type="button" class="btn danger-outline" @click="showDelete = true">삭제</button>
       </div>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
@@ -139,13 +139,6 @@ function onDeleted() {
 .actions {
   display: flex;
   gap: 0.5rem;
-}
-.danger-outline {
-  border: 1px solid var(--crit, #c0392b);
-  color: var(--crit, #c0392b);
-  background: none;
-  border-radius: 6px;
-  padding: 0.35rem 0.9rem;
 }
 .warn { color: var(--crit); font-weight: bold; }
 .hint { font-size: 0.85rem; color: var(--ink-soft); }

@@ -93,18 +93,87 @@ button {
   cursor: pointer;
 }
 
+/* ── 버튼 ──
+   .btn            기본(보조): 표면색 + 테두리. 취소, 설정 수정 등
+   .btn.primary    주 동작: 강조색 채움. 토픽 생성, 로그인, 모달의 생성/적용
+   .btn.danger     위험 동작 확정: 빨강 채움. 삭제 모달의 삭제
+   .btn.danger-outline  위험 동작 진입: 빨강 테두리. 상세 화면의 삭제
+   type="submit" 버튼은 클래스 없이도 primary 로 취급한다. */
+.btn,
 button[type='submit'] {
-  padding: 0.55rem 1rem;
-  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--line);
   border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    filter 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.btn.primary,
+button[type='submit'] {
   background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
-  font-size: 0.95rem;
   font-weight: 700;
 }
 
-button[type='submit']:hover {
+.btn.primary:hover:not(:disabled),
+button[type='submit']:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
   filter: brightness(1.08);
+}
+
+.btn.danger {
+  background: var(--crit);
+  border-color: var(--crit);
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: var(--crit);
+  border-color: var(--crit);
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.btn.danger-outline {
+  background: transparent;
+  border-color: var(--crit);
+  color: var(--crit);
+}
+
+.btn.danger-outline:hover:not(:disabled) {
+  background: var(--crit-soft);
+  border-color: var(--crit);
+  color: var(--crit);
+}
+
+.btn:disabled,
+button[type='submit']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
 }
 
 :focus-visible {

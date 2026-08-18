@@ -30,7 +30,7 @@ function onCreated() {
   <main>
     <div class="head-row">
       <h1>토픽</h1>
-      <button v-if="isAdmin" type="button" @click="showCreate = true">토픽 생성</button>
+      <button v-if="isAdmin" type="button" class="btn primary" @click="showCreate = true">토픽 생성</button>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
     <table v-else>

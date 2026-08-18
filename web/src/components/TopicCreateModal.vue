@@ -8,7 +8,7 @@ const emit = defineEmits<{ close: []; created: [] }>()
 const name = ref('')
 const partitions = ref('3')
 const replicationFactor = ref('3')
-const retentionMs = ref('')
+const retentionMs = ref('604800000') // 7일 (브로커 기본값과 동일)
 const error = ref('')
 const submitting = ref(false)
 
@@ -46,12 +46,12 @@ async function submit() {
       <label>토픽명 <input name="name" v-model="name" required /></label>
       <label>파티션 수 <input name="partitions" v-model="partitions" type="number" min="1" required /></label>
       <label>복제 팩터 <input name="replicationFactor" v-model="replicationFactor" type="number" min="1" required /></label>
-      <label>retention.ms (선택) <input name="retentionMs" v-model="retentionMs" type="number" min="1" /></label>
+      <label>retention.ms (기본 604800000 = 7일) <input name="retentionMs" v-model="retentionMs" type="number" min="1" /></label>
       <p v-if="summary" class="summary">{{ summary }}</p>
       <p v-if="error" class="error">{{ error }}</p>
     </form>
     <template #footer>
-      <button type="button" @click="emit('close')">취소</button>
+      <button type="button" class="btn" @click="emit('close')">취소</button>
       <button type="submit" form="topic-create-form" :disabled="submitting">생성</button>
     </template>
   </ModalDialog>

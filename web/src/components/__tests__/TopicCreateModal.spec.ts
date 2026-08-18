@@ -29,6 +29,17 @@ describe('TopicCreateModal', () => {
     expect(wrapper.emitted('created')).toHaveLength(1)
   })
 
+  it('retention.ms 는 기본값 604800000(7일)이 채워져 있고 그대로 전송된다', async () => {
+    vi.mocked(api).mockResolvedValue(undefined)
+    const wrapper = mount(TopicCreateModal)
+    expect((wrapper.find('input[name="retentionMs"]').element as HTMLInputElement).value).toBe('604800000')
+    await wrapper.find('input[name="name"]').setValue('orders')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    const body = JSON.parse(vi.mocked(api).mock.calls[0]![1]!.body as string)
+    expect(body.configs).toEqual({ 'retention.ms': '604800000' })
+  })
+
   it('retention 을 입력하면 configs 로 전송한다', async () => {
     vi.mocked(api).mockResolvedValue(undefined)
     const wrapper = mount(TopicCreateModal)

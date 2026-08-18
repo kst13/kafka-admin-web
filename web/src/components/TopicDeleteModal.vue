@@ -36,8 +36,8 @@ async function remove() {
     </label>
     <p v-if="error" class="error">{{ error }}</p>
     <template #footer>
-      <button type="button" @click="emit('close')">취소</button>
-      <button type="button" class="danger" :disabled="!canDelete || submitting" @click="remove">
+      <button type="button" class="btn" @click="emit('close')">취소</button>
+      <button type="button" class="btn danger" :disabled="!canDelete || submitting" @click="remove">
         삭제
       </button>
     </template>
@@ -50,16 +50,6 @@ label {
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.85rem;
-}
-.danger {
-  background: var(--crit, #c0392b);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 0.35rem 0.9rem;
-}
-.danger:disabled {
-  opacity: 0.4;
 }
 .error {
   color: var(--crit, #c0392b);

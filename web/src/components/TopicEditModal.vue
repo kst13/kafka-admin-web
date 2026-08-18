@@ -52,7 +52,7 @@ async function submit() {
       <p v-if="error" class="error">{{ error }}</p>
     </form>
     <template #footer>
-      <button type="button" @click="emit('close')">취소</button>
+      <button type="button" class="btn" @click="emit('close')">취소</button>
       <button type="submit" form="topic-edit-form" :disabled="submitting">적용</button>
     </template>
   </ModalDialog>
