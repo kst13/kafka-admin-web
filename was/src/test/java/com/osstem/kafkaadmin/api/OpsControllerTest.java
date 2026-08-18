@@ -2,6 +2,9 @@ package com.osstem.kafkaadmin.api;
 
 import com.osstem.kafkaadmin.ops.AuditLogRepository;
 import com.osstem.kafkaadmin.ops.AuditRecorder;
+import com.osstem.kafkaadmin.ops.GroupCommandService;
+import com.osstem.kafkaadmin.ops.GroupCommandService.StartFrom;
+import com.osstem.kafkaadmin.ops.GroupExistsException;
 import com.osstem.kafkaadmin.ops.TopicCommandService;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
@@ -25,6 +28,7 @@ class OpsControllerTest {
 
     @Autowired MockMvc mvc;
     @MockitoBean TopicCommandService commands;
+    @MockitoBean GroupCommandService groupCommands;
     @MockitoBean AuditRecorder recorder;
     @MockitoBean AuditLogRepository auditLogs;
 
@@ -105,5 +109,58 @@ class OpsControllerTest {
                         .content("{\"configs\":{\"retention.ms\":\"1000\"}}"))
                 .andExpect(status().isNoContent());
         then(commands).should().updateTopic("orders", null, configs);
+    }
+
+    private static final String GROUP_BODY =
+            "{\"groupId\":\"order-svc\",\"topics\":[\"orders\"],\"startFrom\":\"earliest\"}";
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void 그룹_등록_성공은_201이고_감사_로그를_거친다() throws Exception {
+        willAnswer(inv -> { inv.getArgument(4, Runnable.class).run(); return null; })
+                .given(recorder).record(any(), any(), any(), any(), any());
+        mvc.perform(post("/api/ops/groups").contentType("application/json").content(GROUP_BODY))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.groupId").value("order-svc"));
+        then(recorder).should().record(eq("user"), eq("GROUP_REGISTER"), eq("order-svc"), any(), any());
+        then(groupCommands).should().registerGroup("order-svc", java.util.List.of("orders"), StartFrom.EARLIEST);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void 그룹_등록_startFrom_생략시_latest() throws Exception {
+        willAnswer(inv -> { inv.getArgument(4, Runnable.class).run(); return null; })
+                .given(recorder).record(any(), any(), any(), any(), any());
+        mvc.perform(post("/api/ops/groups").contentType("application/json")
+                        .content("{\"groupId\":\"g\",\"topics\":[\"orders\"]}"))
+                .andExpect(status().isCreated());
+        then(groupCommands).should().registerGroup("g", java.util.List.of("orders"), StartFrom.LATEST);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void 그룹_등록_startFrom_이_이상하면_400() throws Exception {
+        mvc.perform(post("/api/ops/groups").contentType("application/json")
+                        .content("{\"groupId\":\"g\",\"topics\":[\"orders\"],\"startFrom\":\"middle\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void 중복_그룹은_409() throws Exception {
+        willAnswer(inv -> { inv.getArgument(4, Runnable.class).run(); return null; })
+                .given(recorder).record(any(), any(), any(), any(), any());
+        willThrow(new GroupExistsException("order-svc")).given(groupCommands)
+                .registerGroup(any(), any(), any());
+        mvc.perform(post("/api/ops/groups").contentType("application/json").content(GROUP_BODY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("이미 존재하는 그룹입니다"));
+    }
+
+    @Test
+    @WithMockUser(roles = "DEVELOPER")
+    void 그룹_등록은_DEVELOPER_403() throws Exception {
+        mvc.perform(post("/api/ops/groups").contentType("application/json").content(GROUP_BODY))
+                .andExpect(status().isForbidden());
     }
 }

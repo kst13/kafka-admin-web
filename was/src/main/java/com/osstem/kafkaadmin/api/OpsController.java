@@ -5,6 +5,8 @@ import tools.jackson.databind.ObjectMapper;
 import com.osstem.kafkaadmin.ops.AuditLog;
 import com.osstem.kafkaadmin.ops.AuditLogRepository;
 import com.osstem.kafkaadmin.ops.AuditRecorder;
+import com.osstem.kafkaadmin.ops.GroupCommandService;
+import com.osstem.kafkaadmin.ops.GroupCommandService.StartFrom;
 import com.osstem.kafkaadmin.ops.TopicCommandService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -21,15 +23,20 @@ public class OpsController {
     public record CreateTopicRequest(String name, Integer partitions, Short replicationFactor,
                                      Map<String, String> configs) {}
     public record UpdateTopicRequest(Integer partitions, Map<String, String> configs) {}
+    // startFrom: "earliest" | "latest" (생략 시 latest — 컨슈머 기본값 auto.offset.reset 과 동일)
+    public record RegisterGroupRequest(String groupId, List<String> topics, String startFrom) {}
 
     private final TopicCommandService commands;
+    private final GroupCommandService groupCommands;
     private final AuditRecorder recorder;
     private final AuditLogRepository auditLogs;
     private final ObjectMapper objectMapper;
 
-    public OpsController(TopicCommandService commands, AuditRecorder recorder,
-                         AuditLogRepository auditLogs, ObjectMapper objectMapper) {
+    public OpsController(TopicCommandService commands, GroupCommandService groupCommands,
+                         AuditRecorder recorder, AuditLogRepository auditLogs,
+                         ObjectMapper objectMapper) {
         this.commands = commands;
+        this.groupCommands = groupCommands;
         this.recorder = recorder;
         this.auditLogs = auditLogs;
         this.objectMapper = objectMapper;
@@ -63,6 +70,25 @@ public class OpsController {
     public void deleteTopic(@PathVariable String name, Authentication auth) {
         recorder.record(auth.getName(), "TOPIC_DELETE", name, "{}", () ->
                 commands.deleteTopic(name));
+    }
+
+    @PostMapping("/groups")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, String> registerGroup(@RequestBody RegisterGroupRequest req,
+                                             Authentication auth) {
+        StartFrom startFrom = parseStartFrom(req.startFrom());
+        recorder.record(auth.getName(), "GROUP_REGISTER", req.groupId(), toJson(req), () ->
+                groupCommands.registerGroup(req.groupId(), req.topics(), startFrom));
+        return Map.of("groupId", req.groupId());
+    }
+
+    private static StartFrom parseStartFrom(String value) {
+        if (value == null || value.isBlank()) return StartFrom.LATEST;
+        try {
+            return StartFrom.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("startFrom 은 earliest 또는 latest 여야 합니다");
+        }
     }
 
     @GetMapping("/audit-logs")

@@ -1,6 +1,7 @@
 package com.osstem.kafkaadmin.api;
 
 import com.osstem.kafkaadmin.kafka.KafkaUnavailableException;
+import com.osstem.kafkaadmin.ops.GroupExistsException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
@@ -27,6 +28,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> topicExists(TopicExistsException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("error", "이미 존재하는 토픽입니다"));
+    }
+
+    @ExceptionHandler(GroupExistsException.class)
+    public ResponseEntity<Map<String, String>> groupExists(GroupExistsException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", "이미 존재하는 그룹입니다"));
     }
 
     @ExceptionHandler(UnknownTopicOrPartitionException.class)
