@@ -6,9 +6,13 @@ import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 
 @Service
@@ -16,6 +20,14 @@ public class TopicCommandService {
 
     // Kafka 토픽명 규칙: 영숫자 . _ - 만, 249자 이하
     private static final Pattern TOPIC_NAME = Pattern.compile("[a-zA-Z0-9._-]{1,249}");
+
+    // 생성 직후 메타데이터 전파 대기: KRaft 에서 createTopics 응답 뒤에도 브로커별 메타데이터 캐시가
+    // 잠시 뒤처져 describeTopics 가 UnknownTopicOrPartition 을 돌려준다. 이 상태로 응답하면 화면의
+    // 즉시 새로고침이 "브로커 접속 불가"로 보인다. 최대 약 3초(30 x 100ms) 까지만 기다린다.
+    private static final int VISIBILITY_ATTEMPTS = 30;
+    private static final long VISIBILITY_INTERVAL_MS = 100;
+
+    private static final Logger log = LoggerFactory.getLogger(TopicCommandService.class);
 
     private final Admin admin;
 
@@ -33,6 +45,33 @@ public class TopicCommandService {
             topic.configs(configs);
         }
         OpsFutures.await(admin.createTopics(List.of(topic)).all());
+        awaitVisible(name);
+    }
+
+    // 생성은 이미 성공했으므로 여기서 실패해도 예외를 올리지 않는다(요청 자체는 성공 응답).
+    private void awaitVisible(String name) {
+        for (int i = 0; i < VISIBILITY_ATTEMPTS; i++) {
+            try {
+                admin.describeTopics(List.of(name)).allTopicNames().get();
+                return;
+            } catch (ExecutionException e) {
+                if (!(e.getCause() instanceof UnknownTopicOrPartitionException)) {
+                    log.warn("토픽 {} 생성 후 조회 확인 실패 (계속 진행): {}", name, e.getCause().toString());
+                    return;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            try {
+                Thread.sleep(VISIBILITY_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        log.warn("토픽 {} 생성 후 {}ms 안에 메타데이터가 전파되지 않았다 (계속 진행)",
+                name, VISIBILITY_ATTEMPTS * VISIBILITY_INTERVAL_MS);
     }
 
     public void updateTopic(String name, Integer partitions, Map<String, String> configs) {
