@@ -9,6 +9,9 @@ public interface MetricSampleRepository extends JpaRepository<MetricSample, Long
     List<MetricSample> findByMetricTypeAndSubjectKeyAndSampledAtAfterOrderBySampledAt(
             String metricType, String subjectKey, Instant after);
 
+    List<MetricSample> findByMetricTypeAndSubjectKeyStartingWithAndSampledAtAfterOrderBySampledAt(
+            String metricType, String subjectKeyPrefix, Instant after);
+
     @Modifying
     long deleteBySampledAtBefore(Instant before);
 }

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,6 +59,16 @@ public class MetricsCollector {
                         .forEach((topic, sum) -> batch.add(new MetricSample(
                                 "CONSUMED_TOPIC", g.groupId() + "|" + topic, sum, now)));
             }
+            // 파티션별 최신 오프셋(누적) — 유입량은 API/프론트가 증가분으로 계산한다
+            Map<String, Long> endOffsets = monitorQuery.latestOffsetsByTopicPartition();
+            endOffsets.forEach((topicPartition, offset) ->
+                    batch.add(new MetricSample("PRODUCED_PARTITION", topicPartition, offset, now)));
+            endOffsets.entrySet().stream()
+                    .collect(java.util.stream.Collectors.groupingBy(
+                            e -> e.getKey().substring(0, e.getKey().lastIndexOf('|')),
+                            java.util.stream.Collectors.summingLong(Map.Entry::getValue)))
+                    .forEach((topic, sum) ->
+                            batch.add(new MetricSample("PRODUCED_TOPIC", topic, sum, now)));
             batch.add(new MetricSample("URP", "cluster",
                     monitorQuery.countUnderReplicatedPartitions(), now));
             monitorQuery.diskUsedPercentByBroker().forEach((brokerId, pct) ->

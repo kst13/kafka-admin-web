@@ -79,6 +79,47 @@ class MonitorControllerTest {
     }
 
     @Test
+    @WithMockUser
+    void 토픽의_파티션별_유입량을_저장된_샘플의_증가분으로_계산한다() throws Exception {
+        Instant now = Instant.now();
+        // p0: 1시간 동안 60→120 (60건, 분당 1건), p1: 10→10 (유입 없음)
+        given(samples.findByMetricTypeAndSubjectKeyStartingWithAndSampledAtAfterOrderBySampledAt(
+                anyString(), anyString(), any()))
+                .willReturn(List.of(
+                        new MetricSample("PRODUCED_PARTITION", "t|0", 60, now.minusSeconds(3600)),
+                        new MetricSample("PRODUCED_PARTITION", "t|1", 10, now.minusSeconds(3600)),
+                        new MetricSample("PRODUCED_PARTITION", "t|0", 120, now),
+                        new MetricSample("PRODUCED_PARTITION", "t|1", 10, now)));
+
+        mvc.perform(get("/api/topics/t/throughput"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].partition").value(0))
+                .andExpect(jsonPath("$[0].endOffset").value(120))
+                .andExpect(jsonPath("$[0].count").value(60))
+                .andExpect(jsonPath("$[0].ratePerMin").value(1.0))
+                .andExpect(jsonPath("$[1].partition").value(1))
+                .andExpect(jsonPath("$[1].endOffset").value(10))
+                .andExpect(jsonPath("$[1].count").value(0))
+                .andExpect(jsonPath("$[1].ratePerMin").value(0.0));
+    }
+
+    @Test
+    @WithMockUser
+    void 샘플이_하나뿐인_파티션은_현재값만_주고_유입량은_0이다() throws Exception {
+        given(samples.findByMetricTypeAndSubjectKeyStartingWithAndSampledAtAfterOrderBySampledAt(
+                anyString(), anyString(), any()))
+                .willReturn(List.of(
+                        new MetricSample("PRODUCED_PARTITION", "t|0", 42, Instant.now())));
+
+        mvc.perform(get("/api/topics/t/throughput"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].partition").value(0))
+                .andExpect(jsonPath("$[0].endOffset").value(42))
+                .andExpect(jsonPath("$[0].count").value(0))
+                .andExpect(jsonPath("$[0].ratePerMin").value(0.0));
+    }
+
+    @Test
     void 미인증이면_401() throws Exception {
         mvc.perform(get("/api/alerts")).andExpect(status().isUnauthorized());
     }
