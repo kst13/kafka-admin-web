@@ -15,6 +15,7 @@ Kafka 3노드 클러스터(KRaft, SASL_SSL) 관리자 사이트.
 - [1단계 계획](docs/plan-phase1.md) · [2단계 계획](docs/plan-phase2.md) — 실행 기록 (수정 이력 반영 최종본)
 - [3단계 착수 문서](docs/phase3-scope.md) — 다음 단계 범위·이월 항목·선결 결정사항
 - [토픽 CUD 설계](docs/phase3-topic-crud-design.md) · [구현 계획](docs/plan-phase3-topic-crud.md) — 3단계 첫 슬라이스 (ops 모듈 골격)
+- [개선 백로그](docs/improvement-backlog.md) — 운영 효과 순 제안 목록 (웹훅 알림·감사 로그 화면·오프셋 리셋 등)
 
 ## 실행
 
