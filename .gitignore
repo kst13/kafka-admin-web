@@ -8,3 +8,5 @@ web/dist/
 .worktrees/
 deploy/secrets/
 was/config/
+loadtest/kafka-ca.pem
+loadtest/xk6-kafka*
