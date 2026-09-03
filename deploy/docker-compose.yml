@@ -1,8 +1,12 @@
 # 관리용 VM 1대에 web(Nginx) + was(Spring Boot) 컨테이너 2개를 올린다.
 # was 포트는 컨테이너 네트워크 내부 전용 — 외부 진입점은 web(80) 하나다.
+# 이미지 이름을 명시해 두 흐름을 모두 지원한다:
+#  - 로컬/서버 직접 빌드: docker compose up -d --build  (TAG 미지정 → latest 로 빌드·태깅)
+#  - Jenkins 배포: 프리빌드 이미지를 docker load 후 TAG=<빌드번호> docker compose up -d
 services:
   was:
     build: ../was
+    image: kafka-admin-was:${TAG:-latest}
     container_name: kafka-admin-was
     restart: unless-stopped
     env_file: .env
@@ -15,6 +19,7 @@ services:
 
   web:
     build: ../web
+    image: kafka-admin-web:${TAG:-latest}
     container_name: kafka-admin-web
     restart: unless-stopped
     ports:
