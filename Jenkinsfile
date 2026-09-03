@@ -17,7 +17,7 @@ pipeline {
   environment {
     DEPLOY_HOST = 'ow@10.10.10.19'
     DEPLOY_DIR  = '/home/ow/kafka-admin'
-    SSH_CRED_ID = 'kafka-admin-deploy-ssh' // Jenkins 에 등록한 SSH private key credential ID
+    SSH_CRED_ID = 'jenkins-ow' // Jenkins 에 등록한 SSH private key credential ID
   }
 
   stages {
