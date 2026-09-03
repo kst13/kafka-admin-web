@@ -10,23 +10,29 @@ xk6-kafka 로 운영 클러스터(SASL_SSL, SCRAM-SHA-512, 사설 CA)에 접속�
 소량(초당 10건 × 10초) produce 가 실제로 되는지 확인한다.
 성공하면 관리자 화면 통합(ops 모듈의 "부하 테스트" 조치) 본 설계로 진행한다.
 
-## 확인된 것 (2026-08-21 기준)
+## 결론 (2026-08-24): 스파이크 성공 — 통합 가능
+
+운영 클러스터(SASL_SSL, SCRAM-SHA-512, 사설 CA)에 접속해 `loadtest-spike` 토픽 생성 +
+초당 10건 × 10초(101 iteration) produce 를 에러 없이 완료했다. 본 설계 진행 가능.
+
+## 확인된 것
 
 1. **프리빌드 바이너리 사용 가능** — Go 빌드 없이 GitHub 릴리스의
    `xk6-kafka_v2.1.0_darwin_arm64`(k6 v1.7.1 포함)가 바로 실행된다.
    배포 이미지에도 리눅스용 프리빌드를 넣으면 되므로 xk6 빌드 체인이 필요 없다.
-2. **CA 경로 제약** — `tlsConfig.serverCaPem` 에 절대경로를 주면 PEM 파싱 오류
-   ("no start line")가 난다. k6 파일시스템 제약으로 **스크립트 기준 상대경로**여야 한다.
-   → CA(`deploy/secrets/kafka-ca.crt`)를 스크립트 옆에 `kafka-ca.pem` 으로 복사해 사용.
-3. **시나리오 템플릿 작성 완료** — SASL_SCRAM_SHA512 + TLS_1_2 + 사설 CA,
-   `loadtest-spike` 토픽 생성(retention 1시간, 3파티션/RF3), constant-arrival-rate 실행.
+2. **serverCaPem 은 PEM "내용" 문자열** — 경로를 주면 "no start line" 오류.
+   `Connection`(admin)은 librdkafka 경유라 값을 `ssl.ca.pem` 에 그대로 넘긴다
+   (v2.1.0 `pkg/kafka/confluent_config.go`; 경로 폴백은 Writer/Reader 쪽에만 있음).
+   → 스크립트에서 `open("kafka-ca.pem")` 으로 내용을 읽어 넘긴다.
+3. **createTopic 은 멱등 처리 필요** — k6 init 코드는 VU/teardown 단계마다 재실행되어
+   "already exists" 예외가 난다. try/catch 로 무시 (템플릿에 반영됨).
+4. **운영 접속 + produce 성공** — 2026-08-24, 101 iteration 완료, produce 에러 0.
 
-## 미확인 (다음에 할 일)
+## 남은 확인 (선택)
 
-- [ ] 운영 클러스터 접속 + produce 실행 (상대경로 수정 후 아직 미실행)
-- [ ] k6 요약의 `kafka_writer_message_count` / 에러율로 성공 판정
-- [ ] 관리자 화면에서 `loadtest-spike` 토픽·파티션별 유입량 차트에 잡히는지 확인
-- [ ] (성공 시) 본 설계 착수 — 아래 통합 구상 참조
+- [ ] 깨끗한 k6 요약(`kafka_writer_message_count`, 지연 지표) 1회 재실행으로 채집
+- [ ] 관리자 화면에서 `loadtest-spike` 파티션별 유입량 차트에 잡히는지 확인
+- [ ] 본 설계 착수 — 아래 통합 구상 참조
 
 ## 재개 절차
 

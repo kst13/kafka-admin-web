@@ -17,6 +17,7 @@ Kafka 3노드 클러스터(KRaft, SASL_SSL) 관리자 사이트.
 - [토픽 CUD 설계](docs/phase3-topic-crud-design.md) · [구현 계획](docs/plan-phase3-topic-crud.md) — 3단계 첫 슬라이스 (ops 모듈 골격)
 - [개선 백로그](docs/improvement-backlog.md) — 운영 효과 순 제안 목록 (웹훅 알림·감사 로그 화면·오프셋 리셋 등)
 - [k6 부하 테스트 스파이크](docs/spike-k6-kafka.md) — xk6-kafka 검증 기록·재개 절차 (`loadtest/spike-produce.js`)
+- [배포 트러블슈팅](docs/deploy-troubleshooting.md) — 운영 서버 수동 배포 시 함정과 해결 (.env·truststore·ACL)
 
 ## 실행
 

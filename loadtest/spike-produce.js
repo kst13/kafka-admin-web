@@ -6,7 +6,9 @@
 //   KAFKA_SASL_USERNAME=... KAFKA_SASL_PASSWORD=... \
 //   ./xk6-kafka run spike-produce.js
 //
-// 주의: serverCaPem 은 스크립트 기준 상대경로여야 한다 (k6 파일시스템 제약).
+// 주의: serverCaPem 은 Connection(admin, librdkafka 경유)에서는 PEM "내용" 문자열이어야 한다.
+//       (경로 폴백은 Writer/Reader 쪽에만 있음 — pkg/kafka/confluent_config.go 는 값을
+//       ssl.ca.pem 에 그대로 넘긴다.) 그래서 open() 으로 파일 내용을 읽어 넘긴다.
 //       deploy/secrets/kafka-ca.crt 를 이 디렉터리에 kafka-ca.pem 으로 복사해 둘 것.
 import {
   Writer,
@@ -29,11 +31,13 @@ const saslConfig = {
   algorithm: SASL_SCRAM_SHA512,
 };
 
+const caPem = open(__ENV.KAFKA_CA_PEM || "kafka-ca.pem"); // 파일 "내용"을 넘겨야 한다
+
 const tlsConfig = {
   enableTls: true,
   insecureSkipTlsVerify: false,
   minVersion: TLS_1_2,
-  serverCaPem: __ENV.KAFKA_CA_PEM || "kafka-ca.pem",
+  serverCaPem: caPem,
 };
 
 export const options = {
@@ -54,13 +58,18 @@ const connection = new Connection({
   tls: tlsConfig,
 });
 
+// init 코드는 VU/teardown 단계마다 재실행되므로 "이미 존재" 는 정상으로 취급한다
 if (__VU === 0) {
-  connection.createTopic({
-    topic: topic,
-    numPartitions: 3,
-    replicationFactor: 3,
-    configEntries: [{ configName: "retention.ms", configValue: "3600000" }], // 1시간만 보관
-  });
+  try {
+    connection.createTopic({
+      topic: topic,
+      numPartitions: 3,
+      replicationFactor: 3,
+      configEntries: [{ configName: "retention.ms", configValue: "3600000" }], // 1시간만 보관
+    });
+  } catch (e) {
+    if (!String(e).includes("already exists")) throw e;
+  }
 }
 
 const writer = new Writer({

@@ -16,6 +16,7 @@ export default defineConfig({
     },
   },
   server: {
-    proxy: { '/api': 'http://localhost:8080' },
+    // 8080이 다른 프로세스에 점유된 환경에서는 API_PROXY_TARGET으로 대상 변경
+    proxy: { '/api': process.env.API_PROXY_TARGET || 'http://localhost:8080' },
   },
 })
