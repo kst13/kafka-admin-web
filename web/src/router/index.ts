@@ -12,6 +12,7 @@ const router = createRouter({
     { path: '/groups/:groupId', component: () => import('@/views/GroupDetailView.vue') },
     { path: '/alerts', component: () => import('@/views/AlertsView.vue') },
     { path: '/kafka-apps', component: () => import('@/views/KafkaAppsView.vue') },
+    { path: '/kafka-apps/:name', component: () => import('@/views/KafkaAppDetailView.vue') },
   ],
 })
 
