@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { api } from '@/api/client'
+import { api, ApiError } from '@/api/client'
 import { SCHEMA_TYPES, type CompatibilityResult, type RegisteredSchema, type SchemaType } from '@/lib/schemas'
 import ModalDialog from './ModalDialog.vue'
 
@@ -67,7 +67,12 @@ async function register() {
     emit('registered', result.value)
   } catch (e) {
     error.value = e instanceof Error ? e.message : '등록 실패'
-    check.value = null // 등록 시점 재검사 실패 등 — 다시 검사하도록
+    // 409(비호환)면 Registry가 준 구체적 사유를 검사 실패 목록으로 보여준다. 그 외는 재검사하도록 결과를 비운다.
+    if (e instanceof ApiError && e.details.length > 0) {
+      check.value = { compatible: false, messages: e.details }
+    } else {
+      check.value = null // 등록 시점 재검사 실패 등 — 다시 검사하도록
+    }
   } finally {
     submitting.value = false
   }

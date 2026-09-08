@@ -14,7 +14,7 @@ const showGlobal = ref(false)
 const { isAdmin } = useSession()
 const { globalCompatibility, setStatus } = useSchemaRegistry()
 
-function onGlobalSaved(s: unknown) { setStatus(s as SchemaRegistryStatus); showGlobal.value = false }
+function onGlobalSaved(s: unknown) { setStatus(s as SchemaRegistryStatus); showGlobal.value = false; load() }
 
 const grouped = computed(() => groupByTopic(subjects.value))
 
@@ -60,13 +60,13 @@ function rowCompat(row: { key: SubjectSummary | null; value: SubjectSummary | nu
           <thead><tr><th>토픽</th><th>key 스키마</th><th>value 스키마</th><th>호환성</th></tr></thead>
           <tbody>
             <tr v-for="row in grouped.topics" :key="row.topic">
-              <td><RouterLink :to="`/topics/${row.topic}`">{{ row.topic }}</RouterLink></td>
+              <td><RouterLink :to="`/topics/${encodeURIComponent(row.topic)}`">{{ row.topic }}</RouterLink></td>
               <td>
-                <RouterLink v-if="row.key" :to="`/schemas/${row.key.subject}`">{{ cell(row.key) }}</RouterLink>
+                <RouterLink v-if="row.key" :to="`/schemas/${encodeURIComponent(row.key.subject)}`">{{ cell(row.key) }}</RouterLink>
                 <span v-else>—</span>
               </td>
               <td>
-                <RouterLink v-if="row.value" :to="`/schemas/${row.value.subject}`">{{ cell(row.value) }}</RouterLink>
+                <RouterLink v-if="row.value" :to="`/schemas/${encodeURIComponent(row.value.subject)}`">{{ cell(row.value) }}</RouterLink>
                 <span v-else>—</span>
               </td>
               <td>{{ rowCompat(row) }}</td>
@@ -80,7 +80,7 @@ function rowCompat(row: { key: SubjectSummary | null; value: SubjectSummary | nu
             <thead><tr><th>서브젝트</th><th>형식</th><th>최신 버전</th></tr></thead>
             <tbody>
               <tr v-for="s in grouped.others" :key="s.subject">
-                <td><RouterLink :to="`/schemas/${s.subject}`">{{ s.subject }}</RouterLink></td>
+                <td><RouterLink :to="`/schemas/${encodeURIComponent(s.subject)}`">{{ s.subject }}</RouterLink></td>
                 <td>{{ s.schemaType }}</td>
                 <td>v{{ s.latestVersion }}</td>
               </tr>

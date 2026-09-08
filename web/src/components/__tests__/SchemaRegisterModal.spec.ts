@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
-vi.mock('@/api/client', () => ({ api: vi.fn() }))
+vi.mock('@/api/client', () => ({
+  api: vi.fn(),
+  ApiError: class ApiError extends Error {
+    constructor(message: string, public readonly status: number, public readonly details: string[] = []) {
+      super(message)
+    }
+  },
+}))
 
-import { api } from '@/api/client'
+import { api, ApiError } from '@/api/client'
 import SchemaRegisterModal from '../SchemaRegisterModal.vue'
 
 const topics = [{ name: 'orders', partitionCount: 3, replicationFactor: 3 }, { name: 'events', partitionCount: 1, replicationFactor: 3 }]
@@ -98,6 +105,24 @@ describe('SchemaRegisterModal', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('존재하지 않는 토픽입니다')
     expect(wrapper.emitted('registered')).toBeUndefined()
+  })
+
+  it('등록이 409로 실패하면 details 를 호환성 실패 사유로 보여준다', async () => {
+    vi.mocked(api)
+      .mockResolvedValueOnce(topics)
+      .mockResolvedValueOnce({ compatible: true, messages: [] })
+      .mockRejectedValueOnce(new ApiError('호환성 검사에 실패했습니다', 409, ['READER_FIELD_MISSING_DEFAULT_VALUE']))
+    const wrapper = mount(SchemaRegisterModal)
+    await flushPromises()
+    await wrapper.find('select[name="topic"]').setValue('orders')
+    await wrapper.find('textarea[name="schema"]').setValue('{}')
+    await wrapper.find('button.check').trigger('click')
+    await flushPromises()
+    await wrapper.find('button.register').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.check-fail').text()).toContain('READER_FIELD_MISSING_DEFAULT_VALUE')
+    expect(wrapper.text()).toContain('호환성 검사에 실패했습니다')
   })
 
   it('검사 응답이 늦게 도착해도 입력이 바뀌었으면 결과를 반영하지 않는다', async () => {

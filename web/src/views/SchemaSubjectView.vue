@@ -28,7 +28,7 @@ const isTopicBound = computed(() => detail.value?.kind === 'key' || detail.value
 const latestType = computed(() => detail.value?.versions[0]?.schemaType ?? '')
 
 async function loadVersion(version: string): Promise<SchemaVersion> {
-  return api<SchemaVersion>(`/schemas/subjects/${subject}/versions/${version}`)
+  return api<SchemaVersion>(`/schemas/subjects/${encodeURIComponent(subject)}/versions/${encodeURIComponent(version)}`)
 }
 
 // 버전 선택 시 본문을 조회한다. select 값과 어긋난 이전 본문이 남지 않도록 실패 시 비운다.
@@ -44,7 +44,7 @@ async function showVersion(v: string) {
 
 async function load() {
   try {
-    detail.value = await api<SubjectDetail>(`/schemas/subjects/${subject}`)
+    detail.value = await api<SubjectDetail>(`/schemas/subjects/${encodeURIComponent(subject)}`)
     error.value = ''
     const latest = detail.value.versions[0]
     if (latest) {
@@ -96,7 +96,7 @@ function onDeleted() { router.push('/schemas') }
       </div>
       <dl class="meta">
         <dt>토픽</dt>
-        <dd><RouterLink v-if="detail.topic" :to="`/topics/${detail.topic}`">{{ detail.topic }}</RouterLink><span v-else>—</span></dd>
+        <dd><RouterLink v-if="detail.topic" :to="`/topics/${encodeURIComponent(detail.topic)}`">{{ detail.topic }}</RouterLink><span v-else>—</span></dd>
         <dt>종류</dt><dd>{{ detail.kind }}</dd>
         <dt>형식</dt><dd>{{ latestType || '—' }}</dd>
         <dt>호환성</dt><dd>{{ compatibilityLabel(detail) }}</dd>

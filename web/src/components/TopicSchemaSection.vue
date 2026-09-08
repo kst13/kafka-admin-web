@@ -16,7 +16,7 @@ const registerKind = ref<'key' | 'value' | null>(null)
 async function load() {
   if (!configured.value) return
   try {
-    data.value = await api<TopicSchemas>(`/schemas/topics/${props.topic}`)
+    data.value = await api<TopicSchemas>(`/schemas/topics/${encodeURIComponent(props.topic)}`)
     error.value = ''
   } catch (e) {
     error.value = e instanceof Error ? e.message : '조회 실패'
@@ -41,7 +41,7 @@ function onRegistered() { registerKind.value = null; load() }
         <tr class="key">
           <td>key</td>
           <td>
-            <RouterLink v-if="data.key" :to="`/schemas/${data.key.subject}`">{{ cell(data.key) }}</RouterLink>
+            <RouterLink v-if="data.key" :to="`/schemas/${encodeURIComponent(data.key.subject)}`">{{ cell(data.key) }}</RouterLink>
             <span v-else>{{ cell(null) }}</span>
           </td>
           <td><button type="button" class="btn register-key" @click="registerKind = 'key'">{{ data.key ? '새 버전 등록' : '등록' }}</button></td>
@@ -49,7 +49,7 @@ function onRegistered() { registerKind.value = null; load() }
         <tr class="value">
           <td>value</td>
           <td>
-            <RouterLink v-if="data.value" :to="`/schemas/${data.value.subject}`">{{ cell(data.value) }}</RouterLink>
+            <RouterLink v-if="data.value" :to="`/schemas/${encodeURIComponent(data.value.subject)}`">{{ cell(data.value) }}</RouterLink>
             <span v-else>{{ cell(null) }}</span>
           </td>
           <td><button type="button" class="btn register-value" @click="registerKind = 'value'">{{ data.value ? '새 버전 등록' : '등록' }}</button></td>

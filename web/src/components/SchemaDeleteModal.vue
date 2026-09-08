@@ -15,7 +15,7 @@ async function remove() {
   error.value = ''
   submitting.value = true
   try {
-    await api(`/ops/schemas/subjects/${props.subject}`, { method: 'DELETE' })
+    await api(`/ops/schemas/subjects/${encodeURIComponent(props.subject)}`, { method: 'DELETE' })
     emit('deleted')
   } catch (e) {
     error.value = e instanceof Error ? e.message : '삭제 실패'

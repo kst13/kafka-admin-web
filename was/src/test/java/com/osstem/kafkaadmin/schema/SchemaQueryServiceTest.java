@@ -27,6 +27,28 @@ class SchemaQueryServiceTest {
     }
 
     @Test
+    void 설정되어_있고_globalConfig가_성공하면_상태를_채운다() {
+        when(client.configured()).thenReturn(true);
+        when(client.urls()).thenReturn(List.of("http://a:8081", "http://b:8081"));
+        when(client.globalConfig()).thenReturn(CompatibilityLevel.BACKWARD);
+        SchemaRegistryStatus s = service.status();
+        assertThat(s.configured()).isTrue();
+        assertThat(s.urls()).containsExactly("http://a:8081", "http://b:8081");
+        assertThat(s.globalCompatibility()).isEqualTo("BACKWARD");
+    }
+
+    @Test
+    void 설정되어_있어도_globalConfig가_접속불가면_메뉴는_유지하고_호환성만_null() {
+        when(client.configured()).thenReturn(true);
+        when(client.urls()).thenReturn(List.of("http://a:8081"));
+        when(client.globalConfig()).thenThrow(new SchemaRegistryUnavailableException(new RuntimeException("connect timed out")));
+        SchemaRegistryStatus s = service.status();
+        assertThat(s.configured()).isTrue();
+        assertThat(s.urls()).containsExactly("http://a:8081");
+        assertThat(s.globalCompatibility()).isNull();
+    }
+
+    @Test
     void 목록은_토픽_종류_최신버전_호환성_출처를_채운다() {
         when(client.configured()).thenReturn(true);
         when(client.globalConfig()).thenReturn(CompatibilityLevel.BACKWARD);

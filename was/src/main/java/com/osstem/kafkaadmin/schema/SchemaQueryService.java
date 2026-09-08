@@ -1,6 +1,8 @@
 package com.osstem.kafkaadmin.schema;
 
 import com.osstem.kafkaadmin.schema.dto.SchemaDtos.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -11,15 +13,23 @@ import java.util.Optional;
 @Service
 public class SchemaQueryService {
 
+    private static final Logger log = LoggerFactory.getLogger(SchemaQueryService.class);
+
     private final SchemaRegistryClient client;
 
     public SchemaQueryService(SchemaRegistryClient client) {
         this.client = client;
     }
 
+    // globalConfig() 실패(Registry 장애)로 메뉴·기능 전체가 숨겨지지 않도록, 설정은 됐으나 조회는 실패한 상태를 구분해 돌려준다.
     public SchemaRegistryStatus status() {
         if (!client.configured()) return new SchemaRegistryStatus(false, List.of(), null);
-        return new SchemaRegistryStatus(true, client.urls(), client.globalConfig().name());
+        try {
+            return new SchemaRegistryStatus(true, client.urls(), client.globalConfig().name());
+        } catch (SchemaRegistryUnavailableException e) {
+            log.warn("Schema Registry 전역 설정 조회 실패, 메뉴는 유지: {}", e.getMessage());
+            return new SchemaRegistryStatus(true, client.urls(), null);
+        }
     }
 
     public List<SubjectSummary> listSubjects() {

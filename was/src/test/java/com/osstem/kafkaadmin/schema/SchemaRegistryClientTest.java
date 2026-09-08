@@ -85,6 +85,17 @@ class SchemaRegistryClientTest {
     }
 
     @Test
+    void 소프트_삭제된_서브젝트_삭제_404는_400용_예외로_매핑한다() {
+        server.expect(requestTo("http://a:8081/subjects/orders-value"))
+                .andExpect(method(org.springframework.http.HttpMethod.DELETE))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND).contentType(SR)
+                        .body("{\"error_code\":40404,\"message\":\"Subject 'orders-value' was soft deleted.\"}"));
+        assertThatThrownBy(() -> client.deleteSubject("orders-value"))
+                .isInstanceOf(InvalidSchemaException.class)
+                .hasMessageContaining("soft deleted");
+    }
+
+    @Test
     void 등록은_schema와_schemaType을_보내고_id를_돌려준다() {
         server.expect(requestTo("http://a:8081/subjects/orders-value/versions"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))

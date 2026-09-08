@@ -151,6 +151,9 @@ public class SchemaRegistryClient {
         if (code == 40401 || code == 40402 || code == 40403) return new SubjectNotFoundException(subject == null ? message : subject);
         if (status == 409) return new IncompatibleSchemaException(List.of(message));
         if (code == 42201 || code == 42202 || status == 422) return new InvalidSchemaException(message);
+        // 매핑되지 않은 4xx(예: 40404 소프트 삭제된 서브젝트, 40301 권한 없음)는 Registry 메시지를 담아 400으로 —
+        // 5xx/연결 실패만 "Schema Registry 접속 불가"로 남긴다.
+        if (status >= 400 && status < 500) return new InvalidSchemaException(message);
         return new SchemaRegistryUnavailableException(e);
     }
 }

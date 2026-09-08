@@ -19,7 +19,7 @@ async function save() {
   submitting.value = true
   try {
     const payload = isSubject.value
-      ? await api<SubjectDetail>(`/ops/schemas/subjects/${props.subject}/config`, {
+      ? await api<SubjectDetail>(`/ops/schemas/subjects/${encodeURIComponent(props.subject!)}/config`, {
           method: 'PUT', body: JSON.stringify({ compatibility: level.value || null }),
         })
       : await api<SchemaRegistryStatus>('/ops/schemas/config', {
