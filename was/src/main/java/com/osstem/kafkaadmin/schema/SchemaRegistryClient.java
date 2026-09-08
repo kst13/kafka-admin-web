@@ -110,11 +110,14 @@ public class SchemaRegistryClient {
     }
 
     public void deleteSubjectConfig(String subject) {
-        call(subject, c -> c.delete().uri("/config/{s}", subject).accept(SR_JSON).retrieve().toBodilessEntity());
+        // Registry 는 본문 없는 DELETE 에도 Content-Type 이 없으면 415 를 준다 (Jersey 리소스가 클래스 레벨 @Consumes 를 강제)
+        call(subject, c -> c.delete().uri("/config/{s}", subject).headers(h -> h.setContentType(SR_JSON)).accept(SR_JSON)
+                .retrieve().toBodilessEntity());
     }
 
     public List<Integer> deleteSubject(String subject) {
-        return call(subject, c -> c.delete().uri("/subjects/{s}", subject).accept(SR_JSON).retrieve()
+        return call(subject, c -> c.delete().uri("/subjects/{s}", subject).headers(h -> h.setContentType(SR_JSON)).accept(SR_JSON)
+                .retrieve()
                 .body(new ParameterizedTypeReference<List<Integer>>() {}));
     }
 
