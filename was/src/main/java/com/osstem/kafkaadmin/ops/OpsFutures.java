@@ -2,11 +2,13 @@ package com.osstem.kafkaadmin.ops;
 
 import com.osstem.kafkaadmin.kafka.KafkaUnavailableException;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.errors.ClusterAuthorizationException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.PolicyViolationException;
+import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import java.util.concurrent.ExecutionException;
@@ -31,7 +33,9 @@ public final class OpsFutures {
                     || cause instanceof InvalidReplicationFactorException
                     || cause instanceof InvalidConfigurationException
                     || cause instanceof InvalidTopicException
-                    || cause instanceof PolicyViolationException) {
+                    || cause instanceof PolicyViolationException
+                    || cause instanceof ClusterAuthorizationException
+                    || cause instanceof ResourceNotFoundException) {
                 throw (RuntimeException) cause;
             }
             throw new KafkaUnavailableException(cause);
