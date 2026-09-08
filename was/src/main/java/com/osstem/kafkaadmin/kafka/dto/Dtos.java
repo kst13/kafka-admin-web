@@ -20,4 +20,13 @@ public final class Dtos {
                               List<GroupMember> members) {}
     public record MessageRecord(int partition, long offset, Instant timestamp,
                                 String key, String value) {}
+
+    // Kafka 앱 계정 (SCRAM + ACL)
+    public record TopicPermission(String topic, String mode) {}
+    public record RawAcl(String resourceType, String patternType, String name, String operation) {}
+    public record KafkaAppSummary(String name, String owner, String description,
+                                  boolean registered, int topicCount) {}
+    public record KafkaAppDetail(String name, String owner, String description, Instant createdAt,
+                                 boolean registered, List<TopicPermission> permissions,
+                                 List<RawAcl> otherAcls) {}
 }
