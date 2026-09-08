@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -66,15 +67,34 @@ class KafkaAppCommandServiceTest {
         when(admin.describeUserScramCredentials()).thenReturn(r);
     }
 
+    // 존재 확인(생성 초입)은 before 를, 이후 모든 호출(전파 대기 포함)은 after 를 돌려준다.
+    private void scramUsersThenAfter(Map<String, UserScramCredentialsDescription> before,
+                                      Map<String, UserScramCredentialsDescription> after) {
+        DescribeUserScramCredentialsResult r1 = mock(DescribeUserScramCredentialsResult.class);
+        when(r1.all()).thenReturn(KafkaFuture.completedFuture(before));
+        DescribeUserScramCredentialsResult r2 = mock(DescribeUserScramCredentialsResult.class);
+        when(r2.all()).thenReturn(KafkaFuture.completedFuture(after));
+        when(admin.describeUserScramCredentials()).thenReturn(r1, r2);
+    }
+
     private void acls(Collection<AclBinding> bindings) {
         DescribeAclsResult r = mock(DescribeAclsResult.class);
         when(r.values()).thenReturn(KafkaFuture.completedFuture(bindings));
         when(admin.describeAcls(any(AclBindingFilter.class))).thenReturn(r);
     }
 
+    // 특정 필터에만 다른 결과를 주고 싶을 때(예: principalFilter 와 topicFilter 가 서로 달라야 하는 경우).
+    private void acls(AclBindingFilter filter, Collection<AclBinding> bindings) {
+        DescribeAclsResult r = mock(DescribeAclsResult.class);
+        when(r.values()).thenReturn(KafkaFuture.completedFuture(bindings));
+        when(admin.describeAcls(filter)).thenReturn(r);
+    }
+
     @Test
     void 생성은_SCRAM_upsert_후_메타데이터를_저장하고_비밀번호를_돌려준다() {
         when(repository.existsByName("order-api")).thenReturn(false);
+        // 존재 확인 시점엔 아직 없고, 생성 후 전파 대기 시점엔 있는 것으로 보이게 한다.
+        scramUsersThenAfter(Map.of(), Map.of("order-api", mock(UserScramCredentialsDescription.class)));
         String pw = service.create("order-api", "dev1", "주문");
         assertThat(pw).matches("[A-Za-z0-9]{24}");
         ArgumentCaptor<List<org.apache.kafka.clients.admin.UserScramCredentialAlteration>> cap =
@@ -147,14 +167,19 @@ class KafkaAppCommandServiceTest {
     @Test
     void consume_부여는_토픽_ACL을_갈아끼우고_그룹_ACL을_만든다() {
         when(repository.findByName("order-api")).thenReturn(Optional.of(app));
+        // 전파 대기(awaitAcls)가 첫 조회에서 바로 끝나도록 부여된 바인딩을 topicFilter 응답에 미리 반영해 둔다.
+        acls(AclMapping.topicFilter("order-api", "orders"),
+                AclMapping.topicBindings("order-api", "orders", PermissionMode.CONSUME));
         service.setTopicPermission("order-api", "orders", PermissionMode.CONSUME);
         var order = inOrder(admin);
         order.verify(admin).deleteAcls(List.of(AclMapping.topicFilter("order-api", "orders")));
         order.verify(admin).createAcls(AclMapping.topicBindings("order-api", "orders", PermissionMode.CONSUME));
         order.verify(admin).createAcls(List.of(AclMapping.groupBinding("order-api")));
-        // consume 을 새로 주는 경로는 방금 쓴 ACL 을 되짚어 읽는 describeAcls 에 기대지 않고 그룹 바인딩을 직접 보장한다
-        // (전파 지연으로 그 읽기가 아직 반영 전이면 hasConsume() 이 false 로 보여 그룹 ACL 을 잘못 지울 수 있기 때문).
-        verify(admin, never()).describeAcls(any());
+        // consume 을 새로 주는 경로는 방금 쓴 ACL 을 되짚어 읽는 describeAcls(principalFilter) 에 기대지 않고
+        // 그룹 바인딩을 직접 보장한다(전파 지연으로 그 읽기가 아직 반영 전이면 hasConsume() 이 false 로 보여
+        // 그룹 ACL 을 잘못 지울 수 있기 때문). 전파 대기용 describeAcls(topicFilter) 호출만 있어야 한다.
+        verify(admin, never()).describeAcls(AclMapping.principalFilter("order-api"));
+        verify(admin, atLeastOnce()).describeAcls(AclMapping.topicFilter("order-api", "orders"));
         verify(admin, never()).deleteAcls(List.of(AclMapping.groupFilter("order-api")));
     }
 
@@ -170,7 +195,10 @@ class KafkaAppCommandServiceTest {
     @Test
     void 회수_후_다른_consume이_남아있으면_그룹_ACL을_유지한다() {
         when(repository.findByName("order-api")).thenReturn(Optional.of(app));
+        // principalFilter(그룹 보정용) 에는 다른 토픽(events)의 consume 이 남아있는 것으로,
+        // topicFilter(orders, 전파 대기용) 에는 방금 지운 orders ACL 이 사라진 것으로 각각 응답한다.
         acls(AclMapping.topicBindings("order-api", "events", PermissionMode.CONSUME));
+        acls(AclMapping.topicFilter("order-api", "orders"), List.of());
         service.revokeTopicPermission("order-api", "orders");
         verify(admin).deleteAcls(List.of(AclMapping.topicFilter("order-api", "orders")));
         verify(admin).createAcls(List.of(AclMapping.groupBinding("order-api")));
@@ -200,5 +228,30 @@ class KafkaAppCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
         verify(admin, never()).deleteAcls(anyCollection());
         verify(admin, never()).createAcls(anyCollection());
+    }
+
+    @Test
+    void 권한_회수_후_ACL이_사라질_때까지_기다린다() {
+        when(repository.findByName("order-api")).thenReturn(Optional.of(app));
+        List<AclBinding> stillThere = AclMapping.topicBindings("order-api", "orders", PermissionMode.PRODUCE);
+        AtomicInteger calls = new AtomicInteger();
+        when(admin.describeAcls(any(AclBindingFilter.class))).thenAnswer(inv -> {
+            DescribeAclsResult r = mock(DescribeAclsResult.class);
+            if (calls.incrementAndGet() < 3) {
+                when(r.values()).thenReturn(KafkaFuture.completedFuture(stillThere));
+            } else {
+                when(r.values()).thenReturn(KafkaFuture.completedFuture(List.of()));
+            }
+            return r;
+        });
+        assertThatCode(() -> service.revokeTopicPermission("order-api", "orders")).doesNotThrowAnyException();
+        verify(admin, times(3)).describeAcls(any(AclBindingFilter.class));
+    }
+
+    @Test
+    void 전파_확인이_계속_실패해도_회수_자체는_성공으로_처리한다() {
+        when(repository.findByName("order-api")).thenReturn(Optional.of(app));
+        acls(AclMapping.topicBindings("order-api", "orders", PermissionMode.PRODUCE));
+        assertThatCode(() -> service.revokeTopicPermission("order-api", "orders")).doesNotThrowAnyException();
     }
 }

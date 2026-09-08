@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 // Kafka 앱 계정 변경. 브로커(SCRAM·ACL)가 원본이고 메타데이터는 H2. 감사 로그는 컨트롤러가 AuditRecorder 로 감싼다.
@@ -25,6 +26,13 @@ public class KafkaAppCommandService {
     private static final Pattern APP_NAME = Pattern.compile("[a-zA-Z0-9._-]{1,64}");
     private static final ScramCredentialInfo SCRAM = new ScramCredentialInfo(ScramMechanism.SCRAM_SHA_512, 4096);
     private static final Logger log = LoggerFactory.getLogger(KafkaAppCommandService.class);
+
+    // 쓰기 직후 즉시 재조회(컨트롤러의 describeApp/scramUsers)가 최신 상태를 보도록 기다리는 한도.
+    // KRaft 클러스터(3-브로커 실환경에서 확인됨)의 메타데이터 전파가 뒤처지면 방금 쓴 ACL/SCRAM 변경이
+    // 응답 직후 조회에는 옛 상태로 보일 수 있다. TopicCommandService.awaitVisible 과 같은 패턴: 최대 약
+    // 3초(30 x 100ms) 까지만 기다리고, 그래도 안 보이면 경고만 남기고 진행한다(쓰기 자체는 이미 성공).
+    private static final int VISIBILITY_ATTEMPTS = 30;
+    private static final long VISIBILITY_INTERVAL_MS = 100;
 
     private final Admin admin;
     private final KafkaAppRepository repository;
@@ -42,6 +50,7 @@ public class KafkaAppCommandService {
         String password = PasswordGenerator.generate();
         upsertScram(name, password);
         repository.save(new KafkaApp(name, blankToNull(owner), blankToNull(description), Instant.now()));
+        awaitScram(name, true);
         return password;
     }
 
@@ -67,6 +76,7 @@ public class KafkaAppCommandService {
         try {
             OpsFutures.await(admin.alterUserScramCredentials(
                     List.of(new UserScramCredentialDeletion(name, ScramMechanism.SCRAM_SHA_512))).all());
+            awaitScram(name, false);
         } catch (ResourceNotFoundException e) {
             log.warn("SCRAM 계정 {} 이 브로커에 없어 메타데이터만 삭제한다", name);
         }
@@ -79,7 +89,8 @@ public class KafkaAppCommandService {
         if (mode == null) throw new IllegalArgumentException("mode 는 produce, consume, both 중 하나여야 합니다");
         OpsFutures.await(admin.describeTopics(List.of(topic)).allTopicNames()); // 없는 토픽 -> UnknownTopicOrPartition
         OpsFutures.await(admin.deleteAcls(List.of(AclMapping.topicFilter(name, topic))).all());
-        OpsFutures.await(admin.createAcls(AclMapping.topicBindings(name, topic, mode)).all());
+        List<AclBinding> bindings = AclMapping.topicBindings(name, topic, mode);
+        OpsFutures.await(admin.createAcls(bindings).all());
         if (mode.canRead()) {
             // 방금 부여한 topic READ 는 describeAcls 로 되짚어 보면 브로커가 아직 반영하지 않았을 수 있다(전파 지연).
             // 그 상태로 reconcileGroupAcl 을 돌리면 hasConsume() 이 false 로 보여 그룹 ACL 을 잘못 지울 수 있으니,
@@ -90,6 +101,7 @@ public class KafkaAppCommandService {
             // 오래된 읽기가 방금 지운 READ 를 여전히 보이면 그룹 ACL 을 계속 남겨둘 뿐이라 안전한 방향으로만 어긋난다.
             reconcileGroupAcl(name);
         }
+        awaitAcls(name, topic, acls -> acls.containsAll(bindings), "부여");
     }
 
     public void revokeTopicPermission(String name, String topic) {
@@ -97,6 +109,7 @@ public class KafkaAppCommandService {
         requireTopic(topic);
         OpsFutures.await(admin.deleteAcls(List.of(AclMapping.topicFilter(name, topic))).all());
         reconcileGroupAcl(name);
+        awaitAcls(name, topic, Collection::isEmpty, "회수");
     }
 
     // consume 이 하나라도 남아 있으면 그룹 READ 를 보장(중복 생성은 브로커가 무시), 없으면 제거
@@ -107,6 +120,39 @@ public class KafkaAppCommandService {
         } else {
             OpsFutures.await(admin.deleteAcls(List.of(AclMapping.groupFilter(name))).all());
         }
+    }
+
+    // 부여/회수한 토픽 ACL 이 조회에도 반영될 때까지 대기(전파 지연 대응). 실패해도 쓰기는 이미 끝났으므로 경고만 남긴다.
+    private void awaitAcls(String name, String topic, Predicate<Collection<AclBinding>> expected, String what) {
+        for (int i = 0; i < VISIBILITY_ATTEMPTS; i++) {
+            Collection<AclBinding> acls = OpsFutures.await(
+                    admin.describeAcls(AclMapping.topicFilter(name, topic)).values());
+            if (expected.test(acls)) return;
+            try {
+                Thread.sleep(VISIBILITY_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        log.warn("{} 앱 {} 토픽 ACL {} 이(가) {}ms 안에 전파되지 않았다 (계속 진행)",
+                name, topic, what, VISIBILITY_ATTEMPTS * VISIBILITY_INTERVAL_MS);
+    }
+
+    // SCRAM 계정 생성/삭제도 같은 이유로(전파 지연) 조회에 반영될 때까지 대기한다.
+    private void awaitScram(String name, boolean present) {
+        for (int i = 0; i < VISIBILITY_ATTEMPTS; i++) {
+            boolean exists = OpsFutures.await(admin.describeUserScramCredentials().all()).containsKey(name);
+            if (exists == present) return;
+            try {
+                Thread.sleep(VISIBILITY_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        log.warn("{} 앱 SCRAM 계정 {} 여부가 {}ms 안에 전파되지 않았다 (계속 진행)",
+                name, present ? "생성" : "삭제", VISIBILITY_ATTEMPTS * VISIBILITY_INTERVAL_MS);
     }
 
     private void upsertScram(String name, String password) {
