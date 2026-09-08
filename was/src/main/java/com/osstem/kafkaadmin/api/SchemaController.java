@@ -10,8 +10,11 @@ import com.osstem.kafkaadmin.schema.dto.SchemaDtos.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 // 스키마 조회·등록. /api/** 인증만 요구 — DEVELOPER 도 등록할 수 있다(호환성 검사가 소비자를 보호).
 @RestController
@@ -23,11 +26,14 @@ public class SchemaController {
     private final SchemaQueryService queries;
     private final SchemaCommandService commands;
     private final AuditRecorder recorder;
+    private final ObjectMapper objectMapper;
 
-    public SchemaController(SchemaQueryService queries, SchemaCommandService commands, AuditRecorder recorder) {
+    public SchemaController(SchemaQueryService queries, SchemaCommandService commands, AuditRecorder recorder,
+                            ObjectMapper objectMapper) {
         this.queries = queries;
         this.commands = commands;
         this.recorder = recorder;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping("/status")
@@ -61,10 +67,18 @@ public class SchemaController {
         SchemaType type = SchemaType.parse(req.schemaType());
         String subject = SubjectName.of(req.topic(), kind);
         int bytes = req.schema() == null ? 0 : req.schema().getBytes(StandardCharsets.UTF_8).length;
-        String params = "{\"subject\":\"%s\",\"schemaType\":\"%s\",\"schemaBytes\":%d}".formatted(subject, type.name(), bytes);
+        String params = toJson(Map.of("subject", subject, "schemaType", type.name(), "schemaBytes", bytes));
         RegisteredSchema[] holder = new RegisteredSchema[1];
         recorder.record(auth.getName(), "SCHEMA_REGISTER", subject, params,
                 () -> holder[0] = commands.register(req.topic(), kind, type, req.schema()));
         return holder[0];
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JacksonException e) {
+            return "{}";
+        }
     }
 }

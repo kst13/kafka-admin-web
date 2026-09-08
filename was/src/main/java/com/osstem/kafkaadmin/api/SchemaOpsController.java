@@ -8,6 +8,9 @@ import com.osstem.kafkaadmin.schema.dto.SchemaDtos.SchemaRegistryStatus;
 import com.osstem.kafkaadmin.schema.dto.SchemaDtos.SubjectDetail;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -22,18 +25,21 @@ public class SchemaOpsController {
     private final SchemaQueryService queries;
     private final SchemaCommandService commands;
     private final AuditRecorder recorder;
+    private final ObjectMapper objectMapper;
 
-    public SchemaOpsController(SchemaQueryService queries, SchemaCommandService commands, AuditRecorder recorder) {
+    public SchemaOpsController(SchemaQueryService queries, SchemaCommandService commands, AuditRecorder recorder,
+                               ObjectMapper objectMapper) {
         this.queries = queries;
         this.commands = commands;
         this.recorder = recorder;
+        this.objectMapper = objectMapper;
     }
 
     @PutMapping("/config")
     public SchemaRegistryStatus setGlobal(@RequestBody CompatibilityRequest req, Authentication auth) {
         CompatibilityLevel level = CompatibilityLevel.parse(req.compatibility());
         recorder.record(auth.getName(), "SCHEMA_SET_GLOBAL_COMPATIBILITY", "_global",
-                "{\"compatibility\":\"%s\"}".formatted(level.name()),
+                toJson(Map.of("compatibility", level.name())),
                 () -> commands.setGlobalCompatibility(level));
         return queries.status();
     }
@@ -45,7 +51,7 @@ public class SchemaOpsController {
         boolean inherit = req.compatibility() == null || req.compatibility().isBlank();
         CompatibilityLevel level = inherit ? null : CompatibilityLevel.parse(req.compatibility());
         recorder.record(auth.getName(), "SCHEMA_SET_COMPATIBILITY", subject,
-                "{\"compatibility\":%s}".formatted(level == null ? "null" : "\"" + level.name() + "\""),
+                toJson(Collections.singletonMap("compatibility", level == null ? null : level.name())),
                 () -> commands.setCompatibility(subject, level));
         return queries.describeSubject(subject);
     }
@@ -54,8 +60,16 @@ public class SchemaOpsController {
     public Map<String, Object> deleteSubject(@PathVariable String subject, Authentication auth) {
         AtomicReference<List<Integer>> holder = new AtomicReference<>();
         recorder.record(auth.getName(), "SCHEMA_DELETE_SUBJECT", subject,
-                "{\"subject\":\"%s\"}".formatted(subject),
+                toJson(Map.of("subject", subject)),
                 () -> holder.set(commands.deleteSubject(subject)));
         return Map.of("subject", subject, "deletedVersions", holder.get());
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JacksonException e) {
+            return "{}";
+        }
     }
 }

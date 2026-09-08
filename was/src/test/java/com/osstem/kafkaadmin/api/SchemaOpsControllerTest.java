@@ -91,4 +91,14 @@ class SchemaOpsControllerTest {
         then(recorder).should().record(eq("user"), eq("SCHEMA_DELETE_SUBJECT"), eq("orders-value"),
                 eq("{\"subject\":\"orders-value\"}"), any());
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void 서브젝트에_따옴표가_있어도_감사_JSON이_이스케이프된다() throws Exception {
+        given(commands.deleteSubject("a\"b")).willReturn(List.of(1));
+        mvc.perform(delete("/api/ops/schemas/subjects/{subject}", "a\"b"))
+                .andExpect(status().isOk());
+        then(recorder).should().record(eq("user"), eq("SCHEMA_DELETE_SUBJECT"), eq("a\"b"),
+                eq("{\"subject\":\"a\\\"b\"}"), any());
+    }
 }
