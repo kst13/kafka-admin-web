@@ -63,6 +63,31 @@ describe('SchemaSubjectView', () => {
     expect(wrapper.find('pre.schema-compare').text()).toContain('"name": "Order"')
   })
 
+  it('버전 본문 조회가 실패하면 이전 본문을 지우고 에러를 표시한다', async () => {
+    mockApi()
+    const wrapper = mount(SchemaSubjectView, { global: { stubs } })
+    await flushPromises()
+    expect(wrapper.find('pre.schema').exists()).toBe(true)
+    vi.mocked(api).mockImplementation((url: string) => {
+      if (url === '/schemas/subjects/orders-value') return Promise.resolve(detail)
+      if (url === '/schemas/subjects/orders-value/versions/2') return Promise.resolve(v2)
+      if (url === '/schemas/subjects/orders-value/versions/1') return Promise.reject(new Error('Schema Registry 접속 불가'))
+      return Promise.reject(new Error(`unexpected ${url}`))
+    })
+    await wrapper.find('select[name="version"]').setValue('1')
+    await flushPromises()
+    expect(wrapper.find('pre.schema').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Schema Registry 접속 불가')
+  })
+
+  it('마운트 시 최신 버전 본문은 한 번만 조회한다', async () => {
+    mockApi()
+    const wrapper = mount(SchemaSubjectView, { global: { stubs } })
+    await flushPromises()
+    const calls = vi.mocked(api).mock.calls.filter(([url]) => url === '/schemas/subjects/orders-value/versions/2')
+    expect(calls).toHaveLength(1)
+  })
+
   it('DEVELOPER 는 새 버전 등록만 보이고, 규칙 밖 서브젝트는 등록 버튼도 없다', async () => {
     isAdmin.value = false
     mockApi()

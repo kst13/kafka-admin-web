@@ -31,14 +31,27 @@ async function loadVersion(version: string): Promise<SchemaVersion> {
   return api<SchemaVersion>(`/schemas/subjects/${subject}/versions/${version}`)
 }
 
+// 버전 선택 시 본문을 조회한다. select 값과 어긋난 이전 본문이 남지 않도록 실패 시 비운다.
+async function showVersion(v: string) {
+  if (!v || !detail.value) return
+  try {
+    current.value = await loadVersion(v)
+  } catch (e) {
+    current.value = null
+    error.value = e instanceof Error ? e.message : '조회 실패'
+  }
+}
+
 async function load() {
   try {
     detail.value = await api<SubjectDetail>(`/schemas/subjects/${subject}`)
     error.value = ''
     const latest = detail.value.versions[0]
     if (latest) {
-      selected.value = String(latest.version)
-      current.value = await loadVersion(selected.value)
+      const next = String(latest.version)
+      // selected 가 그대로면 watch(selected) 가 다시 반응하지 않으므로 직접 로딩한다
+      if (selected.value === next) await showVersion(next)
+      else selected.value = next
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : '조회 실패'
@@ -46,13 +59,15 @@ async function load() {
 }
 onMounted(load)
 
-watch(selected, async (v) => {
-  if (!v || !detail.value) return
-  try { current.value = await loadVersion(v) } catch (e) { error.value = e instanceof Error ? e.message : '조회 실패' }
-})
+watch(selected, showVersion)
 watch(compareSelected, async (v) => {
   if (!v) { compareVersion.value = null; return }
-  try { compareVersion.value = await loadVersion(v) } catch (e) { error.value = e instanceof Error ? e.message : '조회 실패' }
+  try {
+    compareVersion.value = await loadVersion(v)
+  } catch (e) {
+    compareVersion.value = null
+    error.value = e instanceof Error ? e.message : '조회 실패'
+  }
 })
 watch(compare, (on) => { if (!on) { compareSelected.value = ''; compareVersion.value = null } })
 
