@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { useSession } from '@/composables/useSession'
 
 const route = useRoute()
-const { isAdmin, load } = useSession()
+const { load } = useSession()
 onMounted(load)
 </script>
 
@@ -16,7 +16,6 @@ onMounted(load)
     <RouterLink to="/groups">컨슈머 그룹</RouterLink>
     <RouterLink to="/alerts">알림</RouterLink>
     <RouterLink to="/kafka-apps">Kafka 계정</RouterLink>
-    <RouterLink v-if="isAdmin" to="/users">사이트 계정</RouterLink>
   </nav>
   <RouterView />
 </template>
