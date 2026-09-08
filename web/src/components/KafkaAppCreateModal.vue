@@ -68,10 +68,11 @@ async function submit() {
       <p v-else>브로커에 있는 <strong>{{ name }}</strong> 계정에 담당자·설명을 붙입니다. 비밀번호는 바뀌지 않습니다.</p>
       <label>
         담당 개발자 (선택)
-        <select name="owner" v-model="owner">
-          <option value="">— 없음 —</option>
-          <option v-for="u in siteUsers" :key="u.id" :value="u.username">{{ u.username }}</option>
-        </select>
+        <!-- 자유 입력. 사이트 계정 목록(/ops/users)이 있으면 자동완성 후보로만 쓴다 — 없어도 직접 타이핑해 지정 가능 -->
+        <input name="owner" v-model="owner" list="owner-options" placeholder="이름 또는 사이트 계정" autocomplete="off" />
+        <datalist id="owner-options">
+          <option v-for="u in siteUsers" :key="u.id" :value="u.username" />
+        </datalist>
       </label>
       <label>
         설명 (선택)

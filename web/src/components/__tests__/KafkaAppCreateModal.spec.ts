@@ -25,6 +25,32 @@ describe('KafkaAppCreateModal', () => {
     expect(wrapper.find('button.primary').attributes('disabled')).toBeUndefined()
   })
 
+  it('담당 개발자는 자유 입력이고, 사이트 계정 목록은 자동완성 후보로만 쓴다', async () => {
+    vi.mocked(api).mockResolvedValueOnce(siteUsers)
+    const wrapper = mount(KafkaAppCreateModal)
+    await flushPromises()
+    const owner = wrapper.find('input[name="owner"]')
+    expect(owner.attributes('list')).toBe('owner-options')
+    const options = wrapper.findAll('datalist#owner-options option').map((o) => o.attributes('value'))
+    expect(options).toEqual(['admin', 'dev1'])
+  })
+
+  it('사이트 계정 목록 조회가 실패해도 담당 개발자를 직접 입력해 생성할 수 있다', async () => {
+    vi.mocked(api)
+      .mockRejectedValueOnce(new Error('HTTP 404')) // /ops/users 없음 (사이트 계정 관리 미도입)
+      .mockResolvedValueOnce({ name: 'order-api', password: 'Pw123456Pw123456Pw123456' })
+    const wrapper = mount(KafkaAppCreateModal)
+    await flushPromises()
+    expect(wrapper.findAll('datalist#owner-options option')).toHaveLength(0)
+    await wrapper.find('input[name="name"]').setValue('order-api')
+    await wrapper.find('input[name="owner"]').setValue('홍길동')
+    await wrapper.find('button.primary').trigger('click')
+    await flushPromises()
+    const call = vi.mocked(api).mock.calls[1]!
+    expect(JSON.parse((call[1] as RequestInit).body as string)).toMatchObject({ owner: '홍길동' })
+    expect(wrapper.emitted('created')).toEqual([['order-api']])
+  })
+
   it('생성 성공 시 비밀번호 단계로 바뀌고 created 를 emit 한다', async () => {
     vi.mocked(api)
       .mockResolvedValueOnce(siteUsers)
@@ -32,7 +58,7 @@ describe('KafkaAppCreateModal', () => {
     const wrapper = mount(KafkaAppCreateModal)
     await flushPromises()
     await wrapper.find('input[name="name"]').setValue('order-api')
-    await wrapper.find('select[name="owner"]').setValue('dev1')
+    await wrapper.find('input[name="owner"]').setValue('dev1')
     await wrapper.find('input[name="description"]').setValue('주문')
     await wrapper.find('button.primary').trigger('click')
     await flushPromises()
@@ -70,7 +96,7 @@ describe('KafkaAppCreateModal', () => {
     await flushPromises()
     expect(wrapper.find('input[name="name"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('legacy')
-    await wrapper.find('select[name="owner"]').setValue('dev1')
+    await wrapper.find('input[name="owner"]').setValue('dev1')
     await wrapper.find('button.primary').trigger('click')
     await flushPromises()
     const call = vi.mocked(api).mock.calls[1]!
