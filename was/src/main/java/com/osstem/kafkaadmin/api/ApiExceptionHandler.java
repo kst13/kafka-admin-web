@@ -4,6 +4,11 @@ import com.osstem.kafkaadmin.kafka.KafkaUnavailableException;
 import com.osstem.kafkaadmin.ops.GroupExistsException;
 import com.osstem.kafkaadmin.ops.KafkaAppExistsException;
 import com.osstem.kafkaadmin.ops.KafkaAppNotFoundException;
+import com.osstem.kafkaadmin.schema.IncompatibleSchemaException;
+import com.osstem.kafkaadmin.schema.InvalidSchemaException;
+import com.osstem.kafkaadmin.schema.SchemaRegistryNotConfiguredException;
+import com.osstem.kafkaadmin.schema.SchemaRegistryUnavailableException;
+import com.osstem.kafkaadmin.schema.SubjectNotFoundException;
 import org.apache.kafka.common.errors.ClusterAuthorizationException;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.apache.kafka.common.errors.TopicExistsException;
@@ -78,5 +83,32 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> clusterAuthorization(ClusterAuthorizationException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(Map.of("error", "kafka-admin 계정에 브로커 권한이 부족합니다 (Kafka 계정 관리에는 Cluster Alter 필요)"));
+    }
+
+    // --- Schema Registry ---
+    @ExceptionHandler(SchemaRegistryNotConfiguredException.class)
+    public ResponseEntity<Map<String, String>> schemaRegistryNotConfigured(SchemaRegistryNotConfiguredException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(SchemaRegistryUnavailableException.class)
+    public ResponseEntity<Map<String, String>> schemaRegistryUnavailable(SchemaRegistryUnavailableException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(SubjectNotFoundException.class)
+    public ResponseEntity<Map<String, String>> subjectNotFound(SubjectNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(IncompatibleSchemaException.class)
+    public ResponseEntity<Map<String, Object>> incompatibleSchema(IncompatibleSchemaException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", e.getMessage(), "details", e.getMessages()));
+    }
+
+    @ExceptionHandler(InvalidSchemaException.class)
+    public ResponseEntity<Map<String, String>> invalidSchema(InvalidSchemaException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
 }
