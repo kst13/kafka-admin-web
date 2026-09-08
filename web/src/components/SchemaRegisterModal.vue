@@ -46,10 +46,13 @@ async function runCheck() {
   if (!canCheck.value) return
   error.value = ''
   checking.value = true
+  const requested = body()
   try {
-    check.value = await api<CompatibilityResult>('/schemas/compatibility', { method: 'POST', body: body() })
+    const res = await api<CompatibilityResult>('/schemas/compatibility', { method: 'POST', body: requested })
+    // 응답이 오는 사이 입력이 바뀌었으면(검사 대상이 달라졌으므로) 결과를 반영하지 않는다
+    if (requested === body()) check.value = res
   } catch (e) {
-    error.value = e instanceof Error ? e.message : '호환성 검사 실패'
+    if (requested === body()) error.value = e instanceof Error ? e.message : '호환성 검사 실패'
   } finally {
     checking.value = false
   }
@@ -77,27 +80,27 @@ async function register() {
       <template v-if="!fixed">
         <label>
           토픽
-          <select name="topic" v-model="topic">
+          <select name="topic" v-model="topic" :disabled="checking || submitting">
             <option value="">— 선택 —</option>
             <option v-for="t in topics" :key="t.name" :value="t.name">{{ t.name }}</option>
           </select>
         </label>
         <fieldset class="kind">
           <legend>종류</legend>
-          <label><input type="radio" name="kind" value="key" v-model="kind" /> key</label>
-          <label><input type="radio" name="kind" value="value" v-model="kind" /> value</label>
+          <label><input type="radio" name="kind" value="key" v-model="kind" :disabled="checking || submitting" /> key</label>
+          <label><input type="radio" name="kind" value="value" v-model="kind" :disabled="checking || submitting" /> value</label>
         </fieldset>
       </template>
       <p v-else>서브젝트 <strong>{{ subject }}</strong> 에 새 버전을 등록합니다.</p>
       <label>
         형식
-        <select name="schemaType" v-model="schemaType">
+        <select name="schemaType" v-model="schemaType" :disabled="checking || submitting">
           <option v-for="t in SCHEMA_TYPES" :key="t" :value="t">{{ t }}</option>
         </select>
       </label>
       <label>
         스키마 본문 (최대 1 MB)
-        <textarea name="schema" v-model="schema" rows="12" spellcheck="false" />
+        <textarea name="schema" v-model="schema" rows="12" spellcheck="false" :disabled="checking || submitting" />
       </label>
       <div class="check-row">
         <button type="button" class="btn check" :disabled="!canCheck" @click="runCheck">

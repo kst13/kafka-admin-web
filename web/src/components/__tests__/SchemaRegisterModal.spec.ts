@@ -99,4 +99,35 @@ describe('SchemaRegisterModal', () => {
     expect(wrapper.text()).toContain('존재하지 않는 토픽입니다')
     expect(wrapper.emitted('registered')).toBeUndefined()
   })
+
+  it('검사 응답이 늦게 도착해도 입력이 바뀌었으면 결과를 반영하지 않는다', async () => {
+    let resolveCheck!: (v: unknown) => void
+    vi.mocked(api)
+      .mockResolvedValueOnce(topics)
+      .mockImplementationOnce(() => new Promise((r) => { resolveCheck = r }))
+    const wrapper = mount(SchemaRegisterModal)
+    await flushPromises()
+    await wrapper.find('select[name="topic"]').setValue('orders')
+    await wrapper.find('textarea[name="schema"]').setValue('{}')
+    await wrapper.find('button.check').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    // 검사가 진행 중인 동안엔 입력을 바꿀 수 없다 — 검사 대상이 검사 도중 바뀌는 것을 막는다
+    expect(wrapper.find('select[name="topic"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('input[name="kind"][value="key"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('select[name="schemaType"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('textarea[name="schema"]').attributes('disabled')).toBeDefined()
+
+    resolveCheck({ compatible: true, messages: [] })
+    await flushPromises()
+
+    expect(wrapper.find('.check-ok').exists()).toBe(true)
+    expect(wrapper.find('button.register').attributes('disabled')).toBeUndefined()
+    // 검사가 끝나면 다시 입력할 수 있다
+    expect(wrapper.find('textarea[name="schema"]').attributes('disabled')).toBeUndefined()
+
+    await wrapper.find('textarea[name="schema"]').setValue('{"a":1}')
+    expect(wrapper.find('.check-ok').exists()).toBe(false)
+    expect(wrapper.find('button.register').attributes('disabled')).toBeDefined()
+  })
 })
