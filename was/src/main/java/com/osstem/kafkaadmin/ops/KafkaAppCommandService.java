@@ -75,15 +75,26 @@ public class KafkaAppCommandService {
 
     public void setTopicPermission(String name, String topic, PermissionMode mode) {
         requireRegistered(name);
+        requireTopic(topic);
         if (mode == null) throw new IllegalArgumentException("mode 는 produce, consume, both 중 하나여야 합니다");
         OpsFutures.await(admin.describeTopics(List.of(topic)).allTopicNames()); // 없는 토픽 -> UnknownTopicOrPartition
         OpsFutures.await(admin.deleteAcls(List.of(AclMapping.topicFilter(name, topic))).all());
         OpsFutures.await(admin.createAcls(AclMapping.topicBindings(name, topic, mode)).all());
-        reconcileGroupAcl(name);
+        if (mode.canRead()) {
+            // 방금 부여한 topic READ 는 describeAcls 로 되짚어 보면 브로커가 아직 반영하지 않았을 수 있다(전파 지연).
+            // 그 상태로 reconcileGroupAcl 을 돌리면 hasConsume() 이 false 로 보여 그룹 ACL 을 잘못 지울 수 있으니,
+            // consume 을 새로 주는 경로는 describe 에 기대지 않고 그룹 바인딩을 직접 보장한다(중복 생성은 브로커가 무시).
+            OpsFutures.await(admin.createAcls(List.of(AclMapping.groupBinding(name))).all());
+        } else {
+            // produce-only 로 바뀐 경우는 다른 토픽에 남은 consume 여부를 실제로 봐야 하므로 describe 기반 보정이 필요하다.
+            // 오래된 읽기가 방금 지운 READ 를 여전히 보이면 그룹 ACL 을 계속 남겨둘 뿐이라 안전한 방향으로만 어긋난다.
+            reconcileGroupAcl(name);
+        }
     }
 
     public void revokeTopicPermission(String name, String topic) {
         requireRegistered(name);
+        requireTopic(topic);
         OpsFutures.await(admin.deleteAcls(List.of(AclMapping.topicFilter(name, topic))).all());
         reconcileGroupAcl(name);
     }
@@ -109,6 +120,14 @@ public class KafkaAppCommandService {
 
     private void requireRegistered(String name) {
         repository.findByName(name).orElseThrow(() -> new KafkaAppNotFoundException(name));
+    }
+
+    // null/blank 토픽은 AclMapping 의 ResourcePatternFilter 에서 "이름 무관"으로 해석되어
+    // 원거리 전체 삭제로 번질 수 있으니 브로커 호출 전에 반드시 막는다.
+    private static void requireTopic(String topic) {
+        if (topic == null || topic.isBlank()) {
+            throw new IllegalArgumentException("토픽명을 지정해야 합니다");
+        }
     }
 
     private static void validateName(String name) {

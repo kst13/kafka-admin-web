@@ -147,13 +147,14 @@ class KafkaAppCommandServiceTest {
     @Test
     void consume_부여는_토픽_ACL을_갈아끼우고_그룹_ACL을_만든다() {
         when(repository.findByName("order-api")).thenReturn(Optional.of(app));
-        // 부여 후 조회에서 READ 가 보이도록: describeAcls 는 부여 결과를 돌려준다
-        acls(AclMapping.topicBindings("order-api", "orders", PermissionMode.CONSUME));
         service.setTopicPermission("order-api", "orders", PermissionMode.CONSUME);
         var order = inOrder(admin);
         order.verify(admin).deleteAcls(List.of(AclMapping.topicFilter("order-api", "orders")));
         order.verify(admin).createAcls(AclMapping.topicBindings("order-api", "orders", PermissionMode.CONSUME));
         order.verify(admin).createAcls(List.of(AclMapping.groupBinding("order-api")));
+        // consume 을 새로 주는 경로는 방금 쓴 ACL 을 되짚어 읽는 describeAcls 에 기대지 않고 그룹 바인딩을 직접 보장한다
+        // (전파 지연으로 그 읽기가 아직 반영 전이면 hasConsume() 이 false 로 보여 그룹 ACL 을 잘못 지울 수 있기 때문).
+        verify(admin, never()).describeAcls(any());
         verify(admin, never()).deleteAcls(List.of(AclMapping.groupFilter("order-api")));
     }
 
@@ -187,6 +188,17 @@ class KafkaAppCommandServiceTest {
         when(admin.describeTopics(anyCollection())).thenReturn(topics);
         assertThatThrownBy(() -> service.setTopicPermission("order-api", "ghost", PermissionMode.PRODUCE))
                 .isInstanceOf(org.apache.kafka.common.errors.UnknownTopicOrPartitionException.class);
+        verify(admin, never()).createAcls(anyCollection());
+    }
+
+    @Test
+    void 토픽명이_비어있으면_전체_ACL_삭제로_번지지_않도록_거부한다() {
+        when(repository.findByName("order-api")).thenReturn(Optional.of(app));
+        assertThatThrownBy(() -> service.revokeTopicPermission("order-api", null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.setTopicPermission("order-api", " ", PermissionMode.PRODUCE))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(admin, never()).deleteAcls(anyCollection());
         verify(admin, never()).createAcls(anyCollection());
     }
 }
