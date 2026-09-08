@@ -14,6 +14,7 @@ const router = createRouter({
     { path: '/kafka-apps', component: () => import('@/views/KafkaAppsView.vue') },
     { path: '/kafka-apps/:name', component: () => import('@/views/KafkaAppDetailView.vue') },
     { path: '/schemas', component: () => import('@/views/SchemasView.vue') },
+    { path: '/schemas/:subject', component: () => import('@/views/SchemaSubjectView.vue') },
   ],
 })
 

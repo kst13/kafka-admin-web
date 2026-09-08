@@ -3,14 +3,18 @@ import { ref, computed, onMounted } from 'vue'
 import { api } from '@/api/client'
 import { useSession } from '@/composables/useSession'
 import { useSchemaRegistry } from '@/composables/useSchemaRegistry'
-import { groupByTopic, compatibilityLabel, type SubjectSummary } from '@/lib/schemas'
+import { groupByTopic, compatibilityLabel, type SubjectSummary, type SchemaRegistryStatus } from '@/lib/schemas'
 import SchemaRegisterModal from '@/components/SchemaRegisterModal.vue'
+import CompatibilityModal from '@/components/CompatibilityModal.vue'
 
 const subjects = ref<SubjectSummary[]>([])
 const error = ref('')
 const showRegister = ref(false)
+const showGlobal = ref(false)
 const { isAdmin } = useSession()
-const { globalCompatibility } = useSchemaRegistry()
+const { globalCompatibility, setStatus } = useSchemaRegistry()
+
+function onGlobalSaved(s: unknown) { setStatus(s as SchemaRegistryStatus); showGlobal.value = false }
 
 const grouped = computed(() => groupByTopic(subjects.value))
 
@@ -39,7 +43,7 @@ function rowCompat(row: { key: SubjectSummary | null; value: SubjectSummary | nu
       <h1>스키마</h1>
       <div class="actions">
         <span class="global-compat">전역 호환성: <strong>{{ globalCompatibility ?? '—' }}</strong></span>
-        <slot name="global-actions" />
+        <button v-if="isAdmin" type="button" class="btn change-global" @click="showGlobal = true">전역 호환성 변경</button>
         <button type="button" class="btn primary register-schema" @click="showRegister = true">스키마 등록</button>
       </div>
     </div>
@@ -86,6 +90,7 @@ function rowCompat(row: { key: SubjectSummary | null; value: SubjectSummary | nu
       </template>
     </template>
     <SchemaRegisterModal v-if="showRegister" @close="showRegister = false" @registered="load" />
+    <CompatibilityModal v-if="showGlobal" :current="globalCompatibility ?? 'BACKWARD'" @close="showGlobal = false" @saved="onGlobalSaved" />
   </main>
 </template>
 

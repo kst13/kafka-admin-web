@@ -40,6 +40,7 @@ describe('SchemasView', () => {
     expect(wrapper.find('table.others').text()).toContain('com.x.Y')
     expect(wrapper.find('.global-compat').text()).toContain('BACKWARD')
     expect(wrapper.find('button.register-schema').exists()).toBe(true)
+    expect(wrapper.find('button.change-global').exists()).toBe(true)
   })
 
   it('비어 있으면 안내 문구와 등록 버튼', async () => {
@@ -57,5 +58,6 @@ describe('SchemasView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Schema Registry 접속 불가')
     expect(wrapper.find('button.register-schema').exists()).toBe(true)
+    expect(wrapper.find('button.change-global').exists()).toBe(false)
   })
 })
