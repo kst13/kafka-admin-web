@@ -2,10 +2,12 @@
 import { onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSession } from '@/composables/useSession'
+import { useSchemaRegistry } from '@/composables/useSchemaRegistry'
 
 const route = useRoute()
 const { load } = useSession()
-onMounted(load)
+const { configured: schemaRegistryConfigured, load: loadSchemaRegistry } = useSchemaRegistry()
+onMounted(() => { load(); loadSchemaRegistry() })
 </script>
 
 <template>
@@ -16,6 +18,7 @@ onMounted(load)
     <RouterLink to="/groups">컨슈머 그룹</RouterLink>
     <RouterLink to="/alerts">알림</RouterLink>
     <RouterLink to="/kafka-apps">Kafka 계정</RouterLink>
+    <RouterLink v-if="schemaRegistryConfigured" to="/schemas">스키마</RouterLink>
   </nav>
   <RouterView />
 </template>
