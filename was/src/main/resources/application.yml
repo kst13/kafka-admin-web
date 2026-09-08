@@ -12,6 +12,9 @@ app:
     truststore-location: ${KAFKA_TRUSTSTORE_LOCATION:}
     truststore-password: ${KAFKA_TRUSTSTORE_PASSWORD:}
   admin-initial-password: ${ADMIN_INITIAL_PASSWORD:}
+  schema-registry:
+    urls: ${SCHEMA_REGISTRY_URLS:}
+    timeout-ms: ${SCHEMA_REGISTRY_TIMEOUT_MS:5000}
   monitor:
     enabled: ${MONITOR_ENABLED:true}
     collect-interval-ms: ${MONITOR_COLLECT_INTERVAL_MS:60000}
