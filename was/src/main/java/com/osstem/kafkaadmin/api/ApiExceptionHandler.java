@@ -65,17 +65,18 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
     }
 
-    // SCRAM 삭제 대상이 브로커에 없음
+    // SCRAM 삭제 대상이 브로커에 없음 (토픽/그룹 ops 경로에서도 브로커 리소스 부재로 발생할 수 있어 문구를 일반화)
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, String>> resourceNotFound(ResourceNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "브로커에 없는 Kafka 계정입니다"));
+                .body(Map.of("error", "브로커에 없는 리소스입니다 (SCRAM 계정 등)"));
     }
 
     // 사이트의 kafka-admin SCRAM 계정에 Cluster ALTER 가 없으면 SCRAM/ACL 변경이 거부된다 (선결 작업: 배포 문서)
+    // 토픽/그룹 ops 경로에서도 같은 예외가 날 수 있어 문구를 일반화.
     @ExceptionHandler(ClusterAuthorizationException.class)
     public ResponseEntity<Map<String, String>> clusterAuthorization(ClusterAuthorizationException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "kafka-admin 계정에 Cluster Alter 권한이 필요합니다"));
+                .body(Map.of("error", "kafka-admin 계정에 브로커 권한이 부족합니다 (Kafka 계정 관리에는 Cluster Alter 필요)"));
     }
 }

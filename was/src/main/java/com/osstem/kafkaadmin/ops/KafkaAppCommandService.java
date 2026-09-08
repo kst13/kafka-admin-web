@@ -89,6 +89,7 @@ public class KafkaAppCommandService {
         requireTopic(topic);
         if (mode == null) throw new IllegalArgumentException("mode 는 produce, consume, both 중 하나여야 합니다");
         OpsFutures.await(admin.describeTopics(List.of(topic)).allTopicNames()); // 없는 토픽 -> UnknownTopicOrPartition
+        // 삭제 후 생성 사이에 실패하면 이 토픽 권한이 비어 있는 상태로 남는다 — 의도적으로 fail-closed (재시도로 복구)
         OpsFutures.await(admin.deleteAcls(List.of(AclMapping.topicFilter(name, topic))).all());
         List<AclBinding> bindings = AclMapping.topicBindings(name, topic, mode);
         OpsFutures.await(admin.createAcls(bindings).all());

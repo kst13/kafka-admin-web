@@ -11,8 +11,11 @@ import org.apache.kafka.clients.admin.UserScramCredentialsDescription;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.acl.AclBinding;
 import org.apache.kafka.common.acl.AclBindingFilter;
+import org.apache.kafka.common.errors.TimeoutException;
+import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.junit.jupiter.api.Test;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,5 +80,47 @@ class KafkaAppQueryServiceTest {
                 d -> d.permissions().stream().anyMatch(p -> p.mode().equals("consume")));
 
         assertThat(detail.permissions()).containsExactly(new TopicPermission("orders", "produce"));
+    }
+
+    @Test
+    void 재조회_중_읽기가_실패해도_이전에_읽은_상태를_돌려준다() {
+        when(repository.findByName("order-api")).thenReturn(Optional.of(app));
+        stubScram();
+
+        List<AclBinding> bindings = AclMapping.topicBindings("order-api", "orders", PermissionMode.PRODUCE);
+        AtomicInteger calls = new AtomicInteger();
+        when(admin.describeAcls(any(AclBindingFilter.class))).thenAnswer(inv -> {
+            DescribeAclsResult r = mock(DescribeAclsResult.class);
+            if (calls.incrementAndGet() == 1) {
+                when(r.values()).thenReturn(KafkaFuture.completedFuture(bindings));
+            } else {
+                KafkaFutureImpl<Collection<AclBinding>> f = new KafkaFutureImpl<>();
+                f.completeExceptionally(new TimeoutException("slow"));
+                when(r.values()).thenReturn(f);
+            }
+            return r;
+        });
+
+        // predicate 는 계속 false 라 두 번째 조회까지 가지만, 그 조회가 브로커 접속 실패로 죽는다.
+        // 이미 성공한(첫 번째) 조회 결과가 있으므로 예외를 던지지 않고 그 결과를 돌려준다.
+        KafkaAppDetail detail = service.describeAppUntil("order-api",
+                d -> d.permissions().stream().anyMatch(p -> p.mode().equals("consume")));
+
+        assertThat(detail.permissions()).containsExactly(new TopicPermission("orders", "produce"));
+    }
+
+    @Test
+    void 첫_조회부터_실패하면_돌려줄_결과가_없으므로_그대로_던진다() {
+        when(repository.findByName("order-api")).thenReturn(Optional.of(app));
+        stubScram();
+
+        DescribeAclsResult failing = mock(DescribeAclsResult.class);
+        KafkaFutureImpl<Collection<AclBinding>> f = new KafkaFutureImpl<>();
+        f.completeExceptionally(new TimeoutException("slow"));
+        when(failing.values()).thenReturn(f);
+        when(admin.describeAcls(any(AclBindingFilter.class))).thenReturn(failing);
+
+        assertThatThrownBy(() -> service.describeAppUntil("order-api", d -> true))
+                .isInstanceOf(com.osstem.kafkaadmin.kafka.KafkaUnavailableException.class);
     }
 }

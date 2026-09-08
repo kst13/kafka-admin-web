@@ -79,9 +79,21 @@ public class KafkaAppQueryService {
     // describeApp 은 매 호출마다 AdminClient 가 고른 브로커로 갈 수 있어, 한 번의 대기만으로는 그 브로커가
     // 여전히 뒤처져 있을 수 있다 — 그래서 매번 다시 조회해 실제로 기대한 상태가 보이는지 확인한다.
     public KafkaAppDetail describeAppUntil(String name, Predicate<KafkaAppDetail> expected) {
-        KafkaAppDetail detail = null;
+        KafkaAppDetail lastGood = null;
         for (int i = 0; i < VISIBILITY_ATTEMPTS; i++) {
-            detail = describeApp(name);
+            KafkaAppDetail detail;
+            try {
+                detail = describeApp(name);
+            } catch (KafkaUnavailableException e) {
+                // 쓰기는 이미 성공했다 — 그 뒤의 재조회 한 번이 실패했다고 503 으로 번지게 두지 않는다.
+                // 이전에 읽은 상태가 있으면 그걸 돌려주고, 첫 조회부터 실패하면(돌려줄 게 없음) 그대로 던진다.
+                if (lastGood != null) {
+                    log.warn("앱 {} 상태 재조회 실패 (마지막으로 읽은 상태 반환): {}", name, e.toString());
+                    return lastGood;
+                }
+                throw e;
+            }
+            lastGood = detail;
             if (expected.test(detail)) return detail;
             try {
                 Thread.sleep(VISIBILITY_INTERVAL_MS);
@@ -92,6 +104,6 @@ public class KafkaAppQueryService {
         }
         log.warn("앱 {} 상세가 {}ms 안에 기대 상태로 전파되지 않았다 (마지막 조회 결과 반환)",
                 name, VISIBILITY_ATTEMPTS * VISIBILITY_INTERVAL_MS);
-        return detail;
+        return lastGood;
     }
 }

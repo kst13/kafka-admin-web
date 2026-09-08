@@ -8,7 +8,6 @@ import com.osstem.kafkaadmin.ops.KafkaAppCommandService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
 
 // Kafka 앱 계정 변경(ADMIN 전용). /api/ops/** 는 SecurityConfig 에서 ADMIN 으로 제한된다.
 // 비밀번호는 응답 본문에만 담고 감사 params 에는 넣지 않는다 (params 는 여기서 직접 조립).
@@ -48,7 +47,8 @@ public class KafkaAppOpsController {
         recorder.record(auth.getName(), "KAFKA_APP_REGISTER", name,
                 metaJson(req.owner(), req.description()),
                 () -> commands.register(name, req.owner(), req.description()));
-        return queries.describeApp(name);
+        // 쓰기 후 재조회 실패로 성공한 등록이 503 으로 보이지 않도록(자기 쓰기 읽기 규칙과 동일하게 처리).
+        return queries.describeAppUntil(name, d -> d.registered());
     }
 
     @PostMapping("/{name}/password")

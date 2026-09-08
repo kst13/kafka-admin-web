@@ -71,6 +71,24 @@ class AclMappingTest {
     }
 
     @Test
+    void ALLOW가_아니거나_host가_별표가_아닌_토픽_ACL은_기타로_분류된다() {
+        AclBinding denyWrite = new AclBinding(
+                new ResourcePattern(ResourceType.TOPIC, "orders", PatternType.LITERAL),
+                new AccessControlEntry("User:order-api", "*", AclOperation.WRITE, AclPermissionType.DENY));
+        AclBinding hostRestrictedRead = new AclBinding(
+                new ResourcePattern(ResourceType.TOPIC, "orders", PatternType.LITERAL),
+                new AccessControlEntry("User:order-api", "10.0.0.1", AclOperation.READ, AclPermissionType.ALLOW));
+
+        AclMapping.Derived d = AclMapping.derive("order-api", List.of(denyWrite, hostRestrictedRead));
+
+        assertThat(d.permissions()).isEmpty();
+        assertThat(d.otherAcls()).containsExactlyInAnyOrder(
+                new RawAcl("TOPIC", "LITERAL", "orders", "WRITE"),
+                new RawAcl("TOPIC", "LITERAL", "orders", "READ"));
+        assertThat(d.hasConsume()).isFalse();
+    }
+
+    @Test
     void 필터는_principal과_리소스를_정확히_지정한다() {
         assertThat(AclMapping.principalFilter("order-api").entryFilter().principal()).isEqualTo("User:order-api");
         assertThat(AclMapping.topicFilter("order-api", "orders").patternFilter().name()).isEqualTo("orders");

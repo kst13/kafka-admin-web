@@ -62,7 +62,7 @@ docker compose up -d
      --add --allow-principal User:kafka-admin \
      --operation Alter --operation AlterConfigs --operation Describe --operation DescribeConfigs --cluster
    ```
-   미부여 상태에서는 화면이 403 "kafka-admin 계정에 Cluster Alter 권한이 필요합니다" 로 안내한다.
+   미부여 상태에서는 화면이 403 "kafka-admin 계정에 브로커 권한이 부족합니다 (Kafka 계정 관리에는 Cluster Alter 필요)" 로 안내한다.
    확인: `kafka-acls.sh --list --principal User:kafka-admin`.
 
 ## 진단에 쓴 도구 (같은 증상 재발 시)

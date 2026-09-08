@@ -39,8 +39,8 @@ class KafkaAppOpsControllerTest {
     void recorderRunsOperation() {
         willAnswer(inv -> { inv.getArgument(4, Runnable.class).run(); return null; })
                 .given(recorder).record(any(), any(), any(), any(), any());
-        given(queries.describeApp(any())).willReturn(DETAIL); // register 가 사용
-        given(queries.describeAppUntil(any(), any())).willReturn(DETAIL); // setPermission/revoke 가 사용
+        given(queries.describeApp(any())).willReturn(DETAIL); // 다른 테스트에서 필요 시 사용
+        given(queries.describeAppUntil(any(), any())).willReturn(DETAIL); // register/setPermission/revoke 가 사용
     }
 
     @Test
@@ -83,6 +83,7 @@ class KafkaAppOpsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.registered").value(true));
         then(commands).should().register("order-api", "dev1", null);
+        then(queries).should().describeAppUntil(eq("order-api"), any());
         then(recorder).should().record(eq("user"), eq("KAFKA_APP_REGISTER"), eq("order-api"), any(), any());
     }
 
@@ -146,6 +147,6 @@ class KafkaAppOpsControllerTest {
         willThrow(new ClusterAuthorizationException("denied")).given(commands).delete("order-api");
         mvc.perform(delete("/api/ops/kafka-apps/order-api"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("kafka-admin 계정에 Cluster Alter 권한이 필요합니다"));
+                .andExpect(jsonPath("$.error").value("kafka-admin 계정에 브로커 권한이 부족합니다 (Kafka 계정 관리에는 Cluster Alter 필요)"));
     }
 }
