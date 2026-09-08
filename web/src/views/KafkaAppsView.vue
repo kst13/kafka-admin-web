@@ -21,9 +21,24 @@ async function load() {
 }
 onMounted(load)
 
+// 생성/등록 직후: 브로커 간 메타데이터 전파 시차 때문에 곧바로 재조회한 목록에 새 계정이 아직
+// 없거나 registered=false 로 보일 수 있다. 나타날 때까지 잠깐(최대 6회 x 500ms) 재조회한다
+// (TopicsView.onCreated 와 같은 패턴).
+const REFRESH_ATTEMPTS = 6
+const REFRESH_INTERVAL_MS = 500
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+async function waitRegistered(name: string) {
+  for (let i = 0; i < REFRESH_ATTEMPTS; i++) {
+    await load()
+    if (apps.value.some((a) => a.name === name && a.registered)) return
+    await sleep(REFRESH_INTERVAL_MS)
+  }
+}
+
 // 생성 모달은 비밀번호를 보여주는 동안 열려 있어야 하므로 created 시점엔 목록만 갱신하고 닫지 않는다
-function onCreated() { load() }
-function onRegistered() { registerTarget.value = null; load() }
+function onCreated(name: string) { waitRegistered(name) }
+function onRegistered(name: string) { registerTarget.value = null; waitRegistered(name) }
 </script>
 
 <template>

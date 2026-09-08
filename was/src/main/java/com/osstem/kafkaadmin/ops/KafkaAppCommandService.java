@@ -1,6 +1,7 @@
 package com.osstem.kafkaadmin.ops;
 
 import com.osstem.kafkaadmin.kafka.AclMapping;
+import com.osstem.kafkaadmin.kafka.KafkaUnavailableException;
 import com.osstem.kafkaadmin.kafka.PermissionMode;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.ScramCredentialInfo;
@@ -123,10 +124,16 @@ public class KafkaAppCommandService {
     }
 
     // 부여/회수한 토픽 ACL 이 조회에도 반영될 때까지 대기(전파 지연 대응). 실패해도 쓰기는 이미 끝났으므로 경고만 남긴다.
+    // describeAcls 자체가 실패(브로커 접속 불가 등)해도 쓰기는 이미 성공했으니 503 으로 번지게 두지 않는다.
     private void awaitAcls(String name, String topic, Predicate<Collection<AclBinding>> expected, String what) {
         for (int i = 0; i < VISIBILITY_ATTEMPTS; i++) {
-            Collection<AclBinding> acls = OpsFutures.await(
-                    admin.describeAcls(AclMapping.topicFilter(name, topic)).values());
+            Collection<AclBinding> acls;
+            try {
+                acls = OpsFutures.await(admin.describeAcls(AclMapping.topicFilter(name, topic)).values());
+            } catch (KafkaUnavailableException e) {
+                log.warn("{} 앱 {} 토픽 ACL {} 전파 확인 실패 (계속 진행): {}", name, topic, what, e.toString());
+                return;
+            }
             if (expected.test(acls)) return;
             try {
                 Thread.sleep(VISIBILITY_INTERVAL_MS);
@@ -139,10 +146,16 @@ public class KafkaAppCommandService {
                 name, topic, what, VISIBILITY_ATTEMPTS * VISIBILITY_INTERVAL_MS);
     }
 
-    // SCRAM 계정 생성/삭제도 같은 이유로(전파 지연) 조회에 반영될 때까지 대기한다.
+    // SCRAM 계정 생성/삭제도 같은 이유로(전파 지연) 조회에 반영될 때까지 대기한다. 조회 자체의 실패도 마찬가지로 삼킨다.
     private void awaitScram(String name, boolean present) {
         for (int i = 0; i < VISIBILITY_ATTEMPTS; i++) {
-            boolean exists = OpsFutures.await(admin.describeUserScramCredentials().all()).containsKey(name);
+            boolean exists;
+            try {
+                exists = OpsFutures.await(admin.describeUserScramCredentials().all()).containsKey(name);
+            } catch (KafkaUnavailableException e) {
+                log.warn("{} 앱 SCRAM 계정 전파 확인 실패 (계속 진행): {}", name, e.toString());
+                return;
+            }
             if (exists == present) return;
             try {
                 Thread.sleep(VISIBILITY_INTERVAL_MS);

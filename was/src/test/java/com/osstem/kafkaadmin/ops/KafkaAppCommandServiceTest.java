@@ -254,4 +254,32 @@ class KafkaAppCommandServiceTest {
         acls(AclMapping.topicBindings("order-api", "orders", PermissionMode.PRODUCE));
         assertThatCode(() -> service.revokeTopicPermission("order-api", "orders")).doesNotThrowAnyException();
     }
+
+    @Test
+    void ACL_전파_확인_중_브로커_접속_실패는_회수_자체를_실패시키지_않는다() {
+        when(repository.findByName("order-api")).thenReturn(Optional.of(app));
+        // 그룹 보정(principalFilter)은 정상 응답하고, 전파 확인(topicFilter)만 실패하게 한다.
+        acls(AclMapping.principalFilter("order-api"), List.of());
+        DescribeAclsResult failing = mock(DescribeAclsResult.class);
+        org.apache.kafka.common.internals.KafkaFutureImpl<Collection<AclBinding>> f =
+                new org.apache.kafka.common.internals.KafkaFutureImpl<>();
+        f.completeExceptionally(new org.apache.kafka.common.errors.TimeoutException("timeout"));
+        when(failing.values()).thenReturn(f);
+        when(admin.describeAcls(AclMapping.topicFilter("order-api", "orders"))).thenReturn(failing);
+        assertThatCode(() -> service.revokeTopicPermission("order-api", "orders")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void SCRAM_전파_확인_중_브로커_접속_실패는_생성_자체를_실패시키지_않는다() {
+        when(repository.existsByName("order-api")).thenReturn(false);
+        DescribeUserScramCredentialsResult existsCheck = mock(DescribeUserScramCredentialsResult.class);
+        when(existsCheck.all()).thenReturn(KafkaFuture.completedFuture(Map.of()));
+        DescribeUserScramCredentialsResult failing = mock(DescribeUserScramCredentialsResult.class);
+        org.apache.kafka.common.internals.KafkaFutureImpl<Map<String, UserScramCredentialsDescription>> f =
+                new org.apache.kafka.common.internals.KafkaFutureImpl<>();
+        f.completeExceptionally(new org.apache.kafka.common.errors.TimeoutException("timeout"));
+        when(failing.all()).thenReturn(f);
+        when(admin.describeUserScramCredentials()).thenReturn(existsCheck, failing);
+        assertThatCode(() -> service.create("order-api", null, null)).doesNotThrowAnyException();
+    }
 }

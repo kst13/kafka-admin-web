@@ -39,7 +39,8 @@ class KafkaAppOpsControllerTest {
     void recorderRunsOperation() {
         willAnswer(inv -> { inv.getArgument(4, Runnable.class).run(); return null; })
                 .given(recorder).record(any(), any(), any(), any(), any());
-        given(queries.describeApp(any())).willReturn(DETAIL);
+        given(queries.describeApp(any())).willReturn(DETAIL); // register 가 사용
+        given(queries.describeAppUntil(any(), any())).willReturn(DETAIL); // setPermission/revoke 가 사용
     }
 
     @Test
@@ -129,7 +130,8 @@ class KafkaAppOpsControllerTest {
     @WithMockUser(roles = "ADMIN")
     void 회수는_200에_상세() throws Exception {
         mvc.perform(delete("/api/ops/kafka-apps/order-api/topics/orders"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("order-api"));
         then(commands).should().revokeTopicPermission("order-api", "orders");
         then(recorder).should().record(eq("user"), eq("KAFKA_APP_REVOKE"), eq("order-api"),
                 argThat(p -> p.contains("orders")), any());

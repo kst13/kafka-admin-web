@@ -72,7 +72,9 @@ public class KafkaAppOpsController {
         recorder.record(auth.getName(), "KAFKA_APP_GRANT", name,
                 "{\"topic\":\"%s\",\"mode\":\"%s\"}".formatted(topic, mode.value()),
                 () -> commands.setTopicPermission(name, topic, mode));
-        return queries.describeApp(name);
+        // 자기 쓰기 읽기: 방금 부여한 권한이 이 응답에 보일 때까지 재조회한다(브로커 간 전파 지연 대응).
+        return queries.describeAppUntil(name, d -> d.permissions().stream()
+                .anyMatch(p -> p.topic().equals(topic) && p.mode().equals(mode.value())));
     }
 
     @DeleteMapping("/{name}/topics/{topic}")
@@ -81,7 +83,9 @@ public class KafkaAppOpsController {
         recorder.record(auth.getName(), "KAFKA_APP_REVOKE", name,
                 "{\"topic\":\"%s\"}".formatted(topic),
                 () -> commands.revokeTopicPermission(name, topic));
-        return queries.describeApp(name);
+        // 자기 쓰기 읽기: 방금 회수한 권한이 사라진 상태가 이 응답에 보일 때까지 재조회한다.
+        return queries.describeAppUntil(name, d -> d.permissions().stream()
+                .noneMatch(p -> p.topic().equals(topic)));
     }
 
     private static String metaJson(String owner, String description) {
