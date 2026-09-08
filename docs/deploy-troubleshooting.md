@@ -54,6 +54,17 @@ docker compose up -d
      --add --allow-principal User:kafka-admin --operation All --cluster --topic '*' --group '*'
    ```
 
+   **Kafka 앱 계정 관리 화면(SCRAM·ACL 변경)을 쓰려면** `kafka-admin` 에 Cluster `Alter`/`AlterConfigs`/`Describe`/`DescribeConfigs` 가
+   필요하다. 위처럼 `--operation All --cluster` 를 이미 줬다면 추가 작업 없음. 부분 권한만 줬다면:
+   ```bash
+   docker exec kafka /opt/kafka/bin/kafka-acls.sh \
+     --bootstrap-server 10.10.10.19:9094 --command-config /etc/kafka/secrets/admin.properties \
+     --add --allow-principal User:kafka-admin \
+     --operation Alter --operation AlterConfigs --operation Describe --operation DescribeConfigs --cluster
+   ```
+   미부여 상태에서는 화면이 403 "kafka-admin 계정에 Cluster Alter 권한이 필요합니다" 로 안내한다.
+   확인: `kafka-acls.sh --list --principal User:kafka-admin`.
+
 ## 진단에 쓴 도구 (같은 증상 재발 시)
 
 - **컨테이너에서 TLS 확인**: `docker compose exec was keytool -printcert -sslserver <ip>:9094`

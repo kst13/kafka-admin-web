@@ -2,6 +2,10 @@ package com.osstem.kafkaadmin.api;
 
 import com.osstem.kafkaadmin.kafka.KafkaUnavailableException;
 import com.osstem.kafkaadmin.ops.GroupExistsException;
+import com.osstem.kafkaadmin.ops.KafkaAppExistsException;
+import com.osstem.kafkaadmin.ops.KafkaAppNotFoundException;
+import org.apache.kafka.common.errors.ClusterAuthorizationException;
+import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
@@ -49,5 +53,29 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> badRequest(RuntimeException e) {
         return ResponseEntity.badRequest()
                 .body(Map.of("error", e.getMessage() == null ? "잘못된 요청입니다" : e.getMessage()));
+    }
+
+    @ExceptionHandler(KafkaAppExistsException.class)
+    public ResponseEntity<Map<String, String>> kafkaAppExists(KafkaAppExistsException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(KafkaAppNotFoundException.class)
+    public ResponseEntity<Map<String, String>> kafkaAppNotFound(KafkaAppNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+    }
+
+    // SCRAM 삭제 대상이 브로커에 없음
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, String>> resourceNotFound(ResourceNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", "브로커에 없는 Kafka 계정입니다"));
+    }
+
+    // 사이트의 kafka-admin SCRAM 계정에 Cluster ALTER 가 없으면 SCRAM/ACL 변경이 거부된다 (선결 작업: 배포 문서)
+    @ExceptionHandler(ClusterAuthorizationException.class)
+    public ResponseEntity<Map<String, String>> clusterAuthorization(ClusterAuthorizationException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", "kafka-admin 계정에 Cluster Alter 권한이 필요합니다"));
     }
 }
