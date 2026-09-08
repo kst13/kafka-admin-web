@@ -7,6 +7,7 @@ import { toHourlyConsumption, type Point } from '@/lib/consumption'
 import TopicEditModal from '@/components/TopicEditModal.vue'
 import TopicDeleteModal from '@/components/TopicDeleteModal.vue'
 import TrendChart from '@/components/TrendChart.vue'
+import TopicSchemaSection from '@/components/TopicSchemaSection.vue'
 
 interface PartitionInfo { partition: number; leader: number; replicas: number[]; isr: number[] }
 interface TopicDetail { name: string; partitions: PartitionInfo[]; configs: Record<string, string> }
@@ -151,6 +152,7 @@ function onDeleted() {
       <ul>
         <li v-for="(v, k) in detail.configs" :key="k">{{ k }} = {{ v }}</li>
       </ul>
+      <TopicSchemaSection :topic="String(route.params.name)" />
       <h2>파티션</h2>
       <table>
         <thead>

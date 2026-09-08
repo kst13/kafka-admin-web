@@ -7,6 +7,7 @@ vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { name: 't' } }),
   useRouter: () => ({ push: vi.fn() }),
 }))
+vi.mock('@/components/TopicSchemaSection.vue', () => ({ default: { name: 'TopicSchemaSection', template: '<div />' } }))
 
 import { api } from '@/api/client'
 import TopicDetailView from '../TopicDetailView.vue'
