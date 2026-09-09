@@ -3,11 +3,13 @@ import { onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSession } from '@/composables/useSession'
 import { useSchemaRegistry } from '@/composables/useSchemaRegistry'
+import { usePrometheus } from '@/composables/usePrometheus'
 
 const route = useRoute()
 const { load } = useSession()
 const { configured: schemaRegistryConfigured, load: loadSchemaRegistry } = useSchemaRegistry()
-onMounted(() => { load(); loadSchemaRegistry() })
+const { load: loadPrometheus } = usePrometheus()
+onMounted(() => { load(); loadSchemaRegistry(); loadPrometheus() })
 </script>
 
 <template>

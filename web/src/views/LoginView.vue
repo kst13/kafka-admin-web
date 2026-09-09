@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { api } from '@/api/client'
 import { useSession } from '@/composables/useSession'
 import { useSchemaRegistry } from '@/composables/useSchemaRegistry'
+import { usePrometheus } from '@/composables/usePrometheus'
 
 const router = useRouter()
 const username = ref('')
@@ -19,6 +20,7 @@ async function login() {
     })
     await useSession().load()
     await useSchemaRegistry().load()
+    await usePrometheus().load()
     router.push('/')
   } catch {
     error.value = '아이디 또는 비밀번호가 올바르지 않습니다'

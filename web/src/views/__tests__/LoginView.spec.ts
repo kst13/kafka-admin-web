@@ -11,6 +11,7 @@ vi.mock('@/composables/useSession', () => ({ useSession: () => ({ load }) }))
 
 const loadSchemaRegistry = vi.fn()
 vi.mock('@/composables/useSchemaRegistry', () => ({ useSchemaRegistry: () => ({ load: loadSchemaRegistry }) }))
+vi.mock('@/composables/usePrometheus', () => ({ usePrometheus: () => ({ load: vi.fn() }) }))
 
 import { api } from '@/api/client'
 import LoginView from '../LoginView.vue'
