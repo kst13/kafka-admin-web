@@ -3,27 +3,26 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/api/client'
 import { useSession } from '@/composables/useSession'
+import { usePrometheus } from '@/composables/usePrometheus'
 import { toHourlyConsumption, type Point } from '@/lib/consumption'
+import { SERIES_RANGES, formatBytes, formatCount, type Series, type SeriesResponse, type SeriesRange } from '@/lib/metrics'
 import TopicEditModal from '@/components/TopicEditModal.vue'
 import TopicDeleteModal from '@/components/TopicDeleteModal.vue'
 import TrendChart from '@/components/TrendChart.vue'
+import MetricChart from '@/components/MetricChart.vue'
 import TopicSchemaSection from '@/components/TopicSchemaSection.vue'
 
 interface PartitionInfo { partition: number; leader: number; replicas: number[]; isr: number[] }
 interface TopicDetail { name: string; partitions: PartitionInfo[]; configs: Record<string, string> }
 interface PartitionThroughput { partition: number; endOffset: number; count: number; ratePerMin: number }
 interface SamplePoint { sampledAt: string; value: number }
-interface MessageRecord {
-  partition: number
-  offset: number
-  timestamp: string
-  key: string | null
-  value: string | null
-}
+interface MessageRecord { partition: number; offset: number; timestamp: string; key: string | null; value: string | null }
 
 const route = useRoute()
 const router = useRouter()
 const { isAdmin } = useSession()
+const { configured: prometheusConfigured, ready: prometheusReady } = usePrometheus()
+const topicName = computed(() => String(route.params.name))
 const detail = ref<TopicDetail | null>(null)
 const error = ref('')
 const messages = ref<MessageRecord[]>([])
@@ -31,86 +30,93 @@ const messagesError = ref('')
 const messagesLoading = ref(false)
 const showEdit = ref(false)
 const showDelete = ref(false)
+
+// --- 폴백(수집기) 모드: 저장된 PRODUCED_* 샘플 ---
 const throughput = ref<Map<number, PartitionThroughput>>(new Map())
 const producedTrend = ref<Point[]>([])
-const throughputLoaded = ref(false)
 
-// 유입 지표는 부가 정보 — 실패해도 파티션 표 자체는 그대로 보여준다
 async function loadThroughput() {
   try {
-    const list = await api<PartitionThroughput[]>(`/topics/${route.params.name}/throughput`)
+    const list = await api<PartitionThroughput[]>(`/topics/${topicName.value}/throughput`)
     throughput.value = new Map(list.map((t) => [t.partition, t]))
     const samples = await api<SamplePoint[]>(
-      `/metrics?type=PRODUCED_TOPIC&subject=${encodeURIComponent(String(route.params.name))}&hours=24`,
+      `/metrics?type=PRODUCED_TOPIC&subject=${encodeURIComponent(topicName.value)}&hours=24`,
     )
     producedTrend.value = toHourlyConsumption(samples.map((s) => ({ t: s.sampledAt, v: s.value })))
   } catch {
     throughput.value = new Map()
     producedTrend.value = []
-  } finally {
-    throughputLoaded.value = true
   }
 }
 
-const hasThroughput = computed(() => throughput.value.size > 0)
-// 수집 샘플이 아직 없을 때만 예시(데모) 데이터를 보여준다 — 로드 중 깜빡임 방지로 loaded 이후에만
-const isDemo = computed(() => throughputLoaded.value && !hasThroughput.value)
+// --- Prometheus 모드: 파티션 현재값 + 유입 추이 ---
+const retained = ref<Map<number, number>>(new Map())
+const logSize = ref<Map<number, number>>(new Map())
+const intakeMetric = ref<'TOPIC_MESSAGES_IN' | 'TOPIC_BYTES_IN'>('TOPIC_MESSAGES_IN')
+const intakeRange = ref<SeriesRange>('1h')
+const intake = ref<SeriesResponse | null>(null)
+const intakeError = ref('')
 
-// 미리보기용 예시 값 — 고정 수식이라 렌더링이 결정적이다 (랜덤 없음)
-function demoThroughput(partition: number): PartitionThroughput {
-  const count = 90 + ((partition * 37) % 60)
-  return { partition, endOffset: 1_000 * (partition + 1) + count, count, ratePerMin: count / 60 }
+// 파티션별 시리즈의 마지막 포인트를 현재값으로 쓴다
+function lastByPartition(series: Series[]): Map<number, number> {
+  const m = new Map<number, number>()
+  for (const s of series) {
+    const p = s.points[s.points.length - 1]
+    if (p) m.set(Number(s.name), p.v)
+  }
+  return m
 }
 
-function rowThroughput(partition: number): PartitionThroughput | null {
-  if (isDemo.value) return demoThroughput(partition)
-  return throughput.value.get(partition) ?? null
+function retainedText(partition: number): string {
+  const v = retained.value.get(partition)
+  return v === undefined ? '—' : formatCount(v)
+}
+function logSizeText(partition: number): string {
+  const v = logSize.value.get(partition)
+  return v === undefined ? '—' : formatBytes(v)
 }
 
-// 추이 차트 대상: 전체(토픽 합) 또는 특정 파티션
-const selectedPartition = ref('all')
-
-// 파티션 선택에 따라 다른 예시 곡선을 보여준다 ('all'이면 토픽 합 느낌의 큰 값)
-const demoTrend = computed<Point[]>(() => {
-  const hour = 3_600_000
-  const base = Math.floor(Date.now() / hour) * hour
-  const seed = selectedPartition.value === 'all' ? 0 : Number(selectedPartition.value) + 1
-  return Array.from({ length: 24 }, (_, i) => ({
-    t: new Date(base - (23 - i) * hour).toISOString(),
-    v: seed === 0 ? 60 + ((i * 7919) % 90) : 15 + ((i * 7919 + seed * 131) % 45),
-  }))
-})
-// 파티션별 조회 결과는 캐시한다
-const partitionTrends = ref<Map<number, Point[]>>(new Map())
-
-watch(selectedPartition, async (sel) => {
-  if (sel === 'all' || isDemo.value) return
-  const p = Number(sel)
-  if (partitionTrends.value.has(p)) return
+async function loadPartitionMetrics() {
   try {
-    const samples = await api<SamplePoint[]>(
-      `/metrics?type=PRODUCED_PARTITION&subject=${encodeURIComponent(`${route.params.name}|${p}`)}&hours=24`,
-    )
-    partitionTrends.value.set(
-      p,
-      toHourlyConsumption(samples.map((s) => ({ t: s.sampledAt, v: s.value }))),
-    )
+    const [r, l] = await Promise.all([
+      api<SeriesResponse>(`/topics/${topicName.value}/series?key=TOPIC_RETAINED_BY_PARTITION&range=1h`),
+      api<SeriesResponse>(`/topics/${topicName.value}/series?key=TOPIC_LOG_SIZE_BY_PARTITION&range=1h`),
+    ])
+    retained.value = lastByPartition(r.series)
+    logSize.value = lastByPartition(l.series)
   } catch {
-    partitionTrends.value.set(p, [])
+    retained.value = new Map()
+    logSize.value = new Map()
   }
-})
+}
 
-const chartPoints = computed<Point[]>(() => {
-  if (isDemo.value) return demoTrend.value
-  if (selectedPartition.value === 'all') return producedTrend.value
-  return partitionTrends.value.get(Number(selectedPartition.value)) ?? []
-})
+// loadIntake() 는 지표/범위 전환마다 다시 실행된다 — 응답이 늦게 도착한 오래된 요청이 최신 선택을
+// 덮어쓰지 않도록 세대 번호로 막는다.
+let intakeGeneration = 0
+
+async function loadIntake() {
+  const gen = ++intakeGeneration
+  intakeError.value = ''
+  try {
+    const res = await api<SeriesResponse>(
+      `/topics/${topicName.value}/series?key=${intakeMetric.value}&range=${intakeRange.value}`,
+    )
+    if (gen !== intakeGeneration) return
+    intake.value = res
+  } catch (e) {
+    if (gen !== intakeGeneration) return
+    intake.value = null
+    intakeError.value = e instanceof Error ? e.message : '조회 실패'
+  }
+}
+
+watch([intakeMetric, intakeRange], () => { if (prometheusConfigured.value) loadIntake() })
 
 async function loadMessages() {
   messagesLoading.value = true
   messagesError.value = ''
   try {
-    messages.value = await api<MessageRecord[]>(`/topics/${route.params.name}/messages?limit=50`)
+    messages.value = await api<MessageRecord[]>(`/topics/${topicName.value}/messages?limit=50`)
   } catch (e) {
     messagesError.value = e instanceof Error ? e.message : '조회 실패'
   } finally {
@@ -120,16 +126,19 @@ async function loadMessages() {
 
 onMounted(async () => {
   try {
-    detail.value = await api<TopicDetail>(`/topics/${route.params.name}`)
+    detail.value = await api<TopicDetail>(`/topics/${topicName.value}`)
   } catch (e) {
     error.value = e instanceof Error ? e.message : '조회 실패'
   }
-  await Promise.all([loadMessages(), loadThroughput()])
+  // App.vue 의 Prometheus 상태 로드가 아직 끝나지 않았을 수 있으므로, 모드를 정하기 전에 기다린다.
+  await prometheusReady()
+  const extra = prometheusConfigured.value ? [loadPartitionMetrics(), loadIntake()] : [loadThroughput()]
+  await Promise.all([loadMessages(), ...extra])
 })
 
 async function reload() {
   showEdit.value = false
-  detail.value = await api<TopicDetail>(`/topics/${route.params.name}`)
+  detail.value = await api<TopicDetail>(`/topics/${topicName.value}`)
 }
 
 function onDeleted() {
@@ -158,9 +167,8 @@ function onDeleted() {
         <thead>
           <tr>
             <th>파티션</th><th>리더</th><th>복제본</th><th>ISR</th><th>상태</th>
-            <th>endOffset<span v-if="isDemo" class="demo-badge">예시</span></th>
-            <th>최근 1시간 유입<span v-if="isDemo" class="demo-badge">예시</span></th>
-            <th>분당 속도<span v-if="isDemo" class="demo-badge">예시</span></th>
+            <template v-if="prometheusConfigured"><th>보유 메시지</th><th>로그 크기</th></template>
+            <template v-else><th>endOffset</th><th>최근 1시간 유입</th><th>분당 속도</th></template>
           </tr>
         </thead>
         <tbody>
@@ -173,35 +181,38 @@ function onDeleted() {
               <span v-if="p.isr.length < p.replicas.length" class="warn">복제 부족</span>
               <span v-else>정상</span>
             </td>
-            <td class="num" :class="{ demo: isDemo }">{{ rowThroughput(p.partition)?.endOffset ?? '—' }}</td>
-            <td class="num" :class="{ demo: isDemo }">{{ rowThroughput(p.partition)?.count ?? '—' }}</td>
-            <td class="num" :class="{ demo: isDemo }">
-              {{ rowThroughput(p.partition)?.ratePerMin.toFixed(1) ?? '—' }}
-            </td>
+            <template v-if="prometheusConfigured">
+              <td class="num">{{ retainedText(p.partition) }}</td>
+              <td class="num">{{ logSizeText(p.partition) }}</td>
+            </template>
+            <template v-else>
+              <td class="num">{{ throughput.get(p.partition)?.endOffset ?? '—' }}</td>
+              <td class="num">{{ throughput.get(p.partition)?.count ?? '—' }}</td>
+              <td class="num">{{ throughput.get(p.partition)?.ratePerMin.toFixed(1) ?? '—' }}</td>
+            </template>
           </tr>
         </tbody>
       </table>
-      <p v-if="isDemo" class="hint">
-        아직 수집된 샘플이 없어 예시 데이터를 표시 중입니다. 수집이 시작되면 실제 값으로 바뀝니다.
-      </p>
-      <template v-if="isDemo || producedTrend.length > 0">
+      <template v-if="prometheusConfigured">
         <div class="trend-head">
-          <h2>유입 추이 (시간대별)<span v-if="isDemo" class="demo-badge">예시</span></h2>
-          <select
-            v-model="selectedPartition"
-            class="partition-select"
-            aria-label="추이 대상 파티션"
-          >
-            <option value="all">전체</option>
-            <option v-for="p in detail.partitions" :key="p.partition" :value="String(p.partition)">
-              파티션 {{ p.partition }}
-            </option>
-          </select>
+          <h2>유입 추이</h2>
+          <div class="metric-tabs">
+            <button type="button" :class="{ on: intakeMetric === 'TOPIC_MESSAGES_IN' }" @click="intakeMetric = 'TOPIC_MESSAGES_IN'">메시지</button>
+            <button type="button" :class="{ on: intakeMetric === 'TOPIC_BYTES_IN' }" @click="intakeMetric = 'TOPIC_BYTES_IN'">바이트</button>
+          </div>
+          <div class="range-tabs">
+            <button v-for="r in SERIES_RANGES" :key="r.value" type="button" :class="{ on: intakeRange === r.value }" @click="intakeRange = r.value">
+              {{ r.label }}
+            </button>
+          </div>
         </div>
-        <div v-if="chartPoints.length > 0" :class="{ demo: isDemo }">
-          <TrendChart :points="chartPoints" label="토픽 유입 추이 차트" />
-        </div>
-        <p v-else class="hint">선택한 파티션의 추이를 그리기엔 샘플이 아직 부족합니다.</p>
+        <p v-if="intakeError" class="error">{{ intakeError }}</p>
+        <MetricChart v-else-if="intake" :series="intake.series" :unit="intake.unit" title="유입 추이" />
+      </template>
+      <template v-else>
+        <h2>유입 추이 (시간대별)</h2>
+        <TrendChart v-if="producedTrend.length > 0" :points="producedTrend" label="토픽 유입 추이 차트" />
+        <p v-else class="hint">수집된 유입 샘플이 아직 없습니다. 수집이 시작되면 표시됩니다.</p>
       </template>
       <div class="messages-head">
         <h2>최근 메시지</h2>
@@ -272,26 +283,12 @@ function onDeleted() {
 .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
 .nowrap { white-space: nowrap; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
-.demo { opacity: 0.55; }
-.trend-head { display: flex; align-items: center; gap: 0.75rem; }
-.partition-select {
-  margin-top: 1.6rem;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 0.85rem;
+.trend-head { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.metric-tabs, .range-tabs { display: flex; gap: 0.4rem; margin-top: 1.6rem; }
+.metric-tabs button, .range-tabs button {
+  padding: 0.25rem 0.75rem; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); color: var(--ink); font-size: 0.85rem;
 }
-.demo-badge {
-  margin-left: 0.35rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: normal;
-  background: var(--line);
-  color: var(--ink-soft);
-  vertical-align: middle;
-}
+.metric-tabs button.on, .range-tabs button.on { border-color: var(--accent); color: var(--accent); font-weight: bold; }
 .value-cell { word-break: break-all; max-width: 480px; }
 </style>
