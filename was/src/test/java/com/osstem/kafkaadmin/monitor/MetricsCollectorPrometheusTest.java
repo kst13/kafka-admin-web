@@ -97,6 +97,26 @@ class MetricsCollectorPrometheusTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void 모든_브로커가_미스크랩이면_클러스터_샘플도_건너뛴다() {
+        ClusterHealth allUnscraped = new ClusterHealth(true, Instant.now(), 1, 2, 0, 3, 0, 7, 0, 0, List.of(
+                new BrokerSnapshot(1, "h1", false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                new BrokerSnapshot(2, "h2", false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)));
+        when(health.refresh()).thenReturn(allUnscraped);
+
+        collector.collectOnce();
+
+        ArgumentCaptor<List<MetricSample>> captor = ArgumentCaptor.forClass(List.class);
+        verify(samples, times(2)).saveAll(captor.capture()); // Kafka 배치 + (빈) Prometheus 배치
+        List<MetricSample> prom = captor.getAllValues().get(1);
+        assertThat(prom).extracting(MetricSample::getMetricType)
+                .doesNotContain("ACTIVE_BROKERS", "OFFLINE_PARTITIONS", "UNDER_MIN_ISR", "UNCLEAN_ELECTIONS");
+        assertThat(prom).isEmpty();
+        assertThat(collector.prometheusConsecutiveFailures()).isZero();
+        assertThat(collector.prometheusLastSuccessAt()).isNotNull();
+    }
+
+    @Test
     void 미설정이면_Prometheus_단계를_건너뛴다() {
         when(health.configured()).thenReturn(false);
         collector.collectOnce();

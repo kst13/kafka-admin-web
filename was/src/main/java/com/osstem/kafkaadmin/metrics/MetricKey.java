@@ -47,7 +47,7 @@ public enum MetricKey {
             "sum(rate(jvm_gc_collection_seconds_sum{instance=\"$b\"}[$r])) * 100",
             "sum by (instance) (rate(jvm_gc_collection_seconds_sum[$r])) * 100"),
     BROKER_CPU_PCT(Scope.BROKER, "%",
-            "rate(process_cpu_seconds_total{instance=\"$b\"}[$r]) * 100",
+            "max(rate(process_cpu_seconds_total{instance=\"$b\"}[$r])) * 100",
             "max by (instance) (rate(process_cpu_seconds_total[$r])) * 100"),
     BROKER_LEADER_COUNT(Scope.BROKER, "count",
             "max(kafka_server_replicamanager_leadercount{instance=\"$b\"})",
@@ -110,7 +110,7 @@ public enum MetricKey {
 
     // PromQL 라벨 매처 문자열 리터럴 이스케이프
     public static String escapeLabel(String v) {
-        return v.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
+        return v.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
     }
 
     private static String require(Map<String, String> args, String name) {

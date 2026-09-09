@@ -23,7 +23,7 @@ class MetricKeyTest {
         assertThat(MetricKey.BROKER_HANDLER_IDLE_PCT.promqlCurrent(Map.of("broker", "b:7071"))).isEqualTo(
                 "clamp_max(max(kafka_server_kafkarequesthandlerpool_requesthandleravgidle_percent{instance=\"b:7071\"}), 1) * 100");
         assertThat(MetricKey.BROKER_CPU_PCT.promqlCurrent(Map.of("broker", "b:7071")))
-                .isEqualTo("rate(process_cpu_seconds_total{instance=\"b:7071\"}[5m]) * 100");
+                .isEqualTo("max(rate(process_cpu_seconds_total{instance=\"b:7071\"}[5m])) * 100");
         assertThat(MetricKey.BROKER_BYTES_IN.unit()).isEqualTo("bytes/s");
     }
 
@@ -52,6 +52,7 @@ class MetricKeyTest {
     @Test
     void 라벨_값의_따옴표_역슬래시_개행을_이스케이프한다() {
         assertThat(MetricKey.escapeLabel("a\"b\\c\nd")).isEqualTo("a\\\"b\\\\c\\nd");
+        assertThat(MetricKey.escapeLabel("a\rb")).isEqualTo("a\\rb");
         assertThat(MetricKey.TOPIC_BYTES_IN.promqlCurrent(Map.of("topic", "x\"y")))
                 .contains("{topic=\"x\\\"y\"}");
     }

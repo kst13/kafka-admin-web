@@ -112,10 +112,17 @@ public class MetricsCollector {
             Instant now = Instant.now();
             ClusterHealth h = health.refresh();
             List<MetricSample> batch = new ArrayList<>();
-            batch.add(new MetricSample("OFFLINE_PARTITIONS", "cluster", h.offlinePartitions(), now));
-            batch.add(new MetricSample("UNDER_MIN_ISR", "cluster", h.underMinIsr(), now));
-            batch.add(new MetricSample("UNCLEAN_ELECTIONS", "cluster", h.uncleanElectionsTotal(), now));
-            batch.add(new MetricSample("ACTIVE_BROKERS", "cluster", h.activeBrokers(), now));
+            boolean anyScraped = h.brokers().stream().anyMatch(BrokerSnapshot::scraped);
+            if (anyScraped) {
+                batch.add(new MetricSample("OFFLINE_PARTITIONS", "cluster", h.offlinePartitions(), now));
+                batch.add(new MetricSample("UNDER_MIN_ISR", "cluster", h.underMinIsr(), now));
+                batch.add(new MetricSample("UNCLEAN_ELECTIONS", "cluster", h.uncleanElectionsTotal(), now));
+                batch.add(new MetricSample("ACTIVE_BROKERS", "cluster", h.activeBrokers(), now));
+            } else {
+                // 모든 브로커가 미스크랩이면 activeBrokers 등 클러스터 집계도 빈 벡터에서 나온 0 이라
+                // BROKER_DOWN 거짓 알림을 만든다 — 클러스터 샘플 전체를 건너뛴다
+                log.warn("Prometheus 에 브로커 시리즈가 없어 클러스터 샘플을 건너뜀");
+            }
             for (BrokerSnapshot b : h.brokers()) {
                 if (!b.scraped()) continue; // 시리즈 없는 브로커의 0 은 거짓 알림(핸들러 0%)을 만든다
                 String id = String.valueOf(b.id());
