@@ -10,5 +10,9 @@ public record MonitorProperties(
         int diskUsedPctThreshold,
         int certWarnDays,
         int cooldownMinutes,
-        int retentionDays) {
+        int retentionDays,
+        int p99ProduceMsThreshold,
+        int p99FetchMsThreshold,
+        int handlerIdleMinPct,
+        int heapUsedPctThreshold) {
 }

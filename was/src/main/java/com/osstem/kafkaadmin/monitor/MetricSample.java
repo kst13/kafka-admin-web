@@ -3,7 +3,9 @@ package com.osstem.kafkaadmin.monitor;
 import jakarta.persistence.*;
 import java.time.Instant;
 
-// 지표 이력 1건. metricType: LAG | URP | DISK_USED_PCT | BROKER_COUNT
+// 지표 이력 1건. metricType: LAG | CONSUMED_TOTAL | CONSUMED_TOPIC | PRODUCED_PARTITION | PRODUCED_TOPIC | URP | DISK_USED_PCT | BROKER_COUNT
+//   Prometheus 스냅샷: OFFLINE_PARTITIONS | UNDER_MIN_ISR | UNCLEAN_ELECTIONS(누적) | ACTIVE_BROKERS (subjectKey cluster)
+//                     P99_PRODUCE_MS | P99_FETCH_MS | HANDLER_IDLE_PCT | HEAP_USED_PCT (subjectKey 브로커 id)
 @Entity
 @Table(name = "metric_sample", indexes =
         @Index(name = "idx_metric_lookup", columnList = "metricType,subjectKey,sampledAt"))

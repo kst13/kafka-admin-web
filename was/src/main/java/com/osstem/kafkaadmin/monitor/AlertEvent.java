@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 // 알림 이력 1건. ruleType: LAG_HIGH | DISK_HIGH | CERT_EXPIRY | COLLECTOR_FAILURE
+//   | OFFLINE_PARTITIONS | URP_HIGH | UNCLEAN_ELECTION | BROKER_DOWN | LATENCY_HIGH | HANDLER_SATURATED | HEAP_HIGH | PROMETHEUS_UNAVAILABLE
 @Entity
 @Table(name = "alert_event", indexes =
         @Index(name = "idx_alert_cooldown", columnList = "ruleType,subjectKey,occurredAt"))

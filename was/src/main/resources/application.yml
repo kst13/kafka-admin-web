@@ -28,3 +28,7 @@ app:
     cert-warn-days: ${MONITOR_CERT_WARN_DAYS:30}
     cooldown-minutes: ${MONITOR_COOLDOWN_MINUTES:30}
     retention-days: ${MONITOR_RETENTION_DAYS:7}
+    p99-produce-ms-threshold: ${MONITOR_P99_PRODUCE_MS:1000}
+    p99-fetch-ms-threshold: ${MONITOR_P99_FETCH_MS:2000}
+    handler-idle-min-pct: ${MONITOR_HANDLER_IDLE_MIN_PCT:20}
+    heap-used-pct-threshold: ${MONITOR_HEAP_USED_PCT:85}

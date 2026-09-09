@@ -13,7 +13,7 @@ class MonitorSchedulerStartupCheckTest {
     private final MetricsCollector collector = mock(MetricsCollector.class);
     private final CertExpiryChecker certChecker = mock(CertExpiryChecker.class);
     private final MetricSampleRepository samples = mock(MetricSampleRepository.class);
-    private final MonitorProperties props = new MonitorProperties(true, 1000, 80, 30, 30, 7);
+    private final MonitorProperties props = new MonitorProperties(true, 1000, 80, 30, 30, 7, 1000, 2000, 20, 85);
 
     @Test
     void 기동_이벤트에서_인증서를_즉시_점검한다() {
