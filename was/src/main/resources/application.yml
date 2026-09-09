@@ -15,6 +15,11 @@ app:
   schema-registry:
     urls: ${SCHEMA_REGISTRY_URLS:}
     timeout-ms: ${SCHEMA_REGISTRY_TIMEOUT_MS:5000}
+  prometheus:
+    url: ${PROMETHEUS_URL:}
+    timeout-ms: ${PROMETHEUS_TIMEOUT_MS:5000}
+    jmx-port: ${PROMETHEUS_JMX_PORT:7071}
+    cache-seconds: ${PROMETHEUS_CACHE_SECONDS:15}
   monitor:
     enabled: ${MONITOR_ENABLED:true}
     collect-interval-ms: ${MONITOR_COLLECT_INTERVAL_MS:60000}
