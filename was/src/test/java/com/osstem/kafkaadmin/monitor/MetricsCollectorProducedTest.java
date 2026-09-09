@@ -4,6 +4,7 @@ import com.osstem.kafkaadmin.kafka.ClusterQueryService;
 import com.osstem.kafkaadmin.kafka.GroupQueryService;
 import com.osstem.kafkaadmin.kafka.MonitorQueryService;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.ClusterInfo;
+import com.osstem.kafkaadmin.metrics.ClusterHealthService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import java.util.List;
@@ -24,8 +25,9 @@ class MetricsCollectorProducedTest {
     private final ClusterQueryService cluster = mock(ClusterQueryService.class);
     private final MetricSampleRepository samples = mock(MetricSampleRepository.class);
     private final AlertEvaluator evaluator = mock(AlertEvaluator.class);
+    private final ClusterHealthService health = mock(ClusterHealthService.class);
     private final MetricsCollector collector =
-            new MetricsCollector(groups, monitorQuery, cluster, samples, evaluator);
+            new MetricsCollector(groups, monitorQuery, cluster, samples, evaluator, health);
 
     @Test
     @SuppressWarnings("unchecked")

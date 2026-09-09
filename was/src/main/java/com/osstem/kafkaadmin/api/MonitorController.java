@@ -29,7 +29,8 @@ public class MonitorController {
     public record PartitionThroughput(int partition, long endOffset, long count,
                                       double ratePerMin) {}
     public record MonitorStatus(Instant lastCollectedAt, int consecutiveFailures,
-                                List<CertStatus> certs) {}
+                                List<CertStatus> certs,
+                                Instant prometheusLastCollectedAt, int prometheusConsecutiveFailures) {}
     public record BrokerDisk(int brokerId, double usedPercent) {}
     public record DiskStatus(int thresholdPct, List<BrokerDisk> brokers) {}
 
@@ -96,8 +97,9 @@ public class MonitorController {
 
     @GetMapping("/monitor/status")
     public MonitorStatus status() {
-        return new MonitorStatus(collector.lastSuccessAt(),
-                collector.consecutiveFailures(), certChecker.lastStatuses());
+        return new MonitorStatus(collector.lastSuccessAt(), collector.consecutiveFailures(),
+                certChecker.lastStatuses(),
+                collector.prometheusLastSuccessAt(), collector.prometheusConsecutiveFailures());
     }
 
     // 실시간 조회 — 브로커 무응답이면 503(KafkaUnavailableException). 화면은 이 카드만 생략한다.

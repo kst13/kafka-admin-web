@@ -4,6 +4,7 @@ import com.osstem.kafkaadmin.kafka.ClusterQueryService;
 import com.osstem.kafkaadmin.kafka.GroupQueryService;
 import com.osstem.kafkaadmin.kafka.KafkaUnavailableException;
 import com.osstem.kafkaadmin.kafka.MonitorQueryService;
+import com.osstem.kafkaadmin.metrics.ClusterHealthService;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
@@ -18,8 +19,9 @@ class MetricsCollectorFailureTest {
     private final ClusterQueryService cluster = mock(ClusterQueryService.class);
     private final MetricSampleRepository samples = mock(MetricSampleRepository.class);
     private final AlertEvaluator evaluator = mock(AlertEvaluator.class);
+    private final ClusterHealthService health = mock(ClusterHealthService.class);
     private final MetricsCollector collector =
-            new MetricsCollector(groups, monitorQuery, cluster, samples, evaluator);
+            new MetricsCollector(groups, monitorQuery, cluster, samples, evaluator, health);
 
     @Test
     void 삼회_연속_실패에_정확히_한_번만_알림이_발생한다() {

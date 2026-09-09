@@ -6,6 +6,9 @@ import com.osstem.kafkaadmin.kafka.MonitorQueryService;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.GroupDetail;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.GroupSummary;
 import com.osstem.kafkaadmin.kafka.dto.Dtos.PartitionLag;
+import com.osstem.kafkaadmin.metrics.ClusterHealthService;
+import com.osstem.kafkaadmin.metrics.dto.MetricsDtos.BrokerSnapshot;
+import com.osstem.kafkaadmin.metrics.dto.MetricsDtos.ClusterHealth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -28,20 +31,30 @@ public class MetricsCollector {
     private final ClusterQueryService cluster;
     private final MetricSampleRepository samples;
     private final AlertEvaluator evaluator;
+    private final ClusterHealthService health;
     private final AtomicInteger failures = new AtomicInteger();
     private final AtomicReference<Instant> lastSuccess = new AtomicReference<>();
+    private final AtomicInteger prometheusFailures = new AtomicInteger();
+    private final AtomicReference<Instant> prometheusLastSuccess = new AtomicReference<>();
 
     public MetricsCollector(GroupQueryService groups, MonitorQueryService monitorQuery,
                             ClusterQueryService cluster, MetricSampleRepository samples,
-                            AlertEvaluator evaluator) {
+                            AlertEvaluator evaluator, ClusterHealthService health) {
         this.groups = groups;
         this.monitorQuery = monitorQuery;
         this.cluster = cluster;
         this.samples = samples;
         this.evaluator = evaluator;
+        this.health = health;
     }
 
     public void collectOnce() {
+        collectKafka();
+        collectPrometheus();
+    }
+
+    // 기존 collectOnce 본문 그대로 — Kafka 배치 수집·저장·평가, 실패는 독립 카운터로 알림
+    private void collectKafka() {
         try {
             Instant now = Instant.now();
             List<MetricSample> batch = new ArrayList<>();
@@ -92,6 +105,42 @@ public class MetricsCollector {
         }
     }
 
+    // Prometheus 스냅샷 — Kafka 수집과 독립된 try/catch, 별도 실패 카운터 (스펙 "수집" 절)
+    private void collectPrometheus() {
+        if (!health.configured()) return;
+        try {
+            Instant now = Instant.now();
+            ClusterHealth h = health.refresh();
+            List<MetricSample> batch = new ArrayList<>();
+            batch.add(new MetricSample("OFFLINE_PARTITIONS", "cluster", h.offlinePartitions(), now));
+            batch.add(new MetricSample("UNDER_MIN_ISR", "cluster", h.underMinIsr(), now));
+            batch.add(new MetricSample("UNCLEAN_ELECTIONS", "cluster", h.uncleanElectionsTotal(), now));
+            batch.add(new MetricSample("ACTIVE_BROKERS", "cluster", h.activeBrokers(), now));
+            for (BrokerSnapshot b : h.brokers()) {
+                if (!b.scraped()) continue; // 시리즈 없는 브로커의 0 은 거짓 알림(핸들러 0%)을 만든다
+                String id = String.valueOf(b.id());
+                batch.add(new MetricSample("P99_PRODUCE_MS", id, b.p99ProduceMs(), now));
+                batch.add(new MetricSample("P99_FETCH_MS", id, b.p99FetchMs(), now));
+                batch.add(new MetricSample("HANDLER_IDLE_PCT", id, b.handlerIdlePct(), now));
+                batch.add(new MetricSample("HEAP_USED_PCT", id, b.heapUsedPct(), now));
+            }
+            samples.saveAll(batch);
+            evaluator.evaluate(batch);
+            prometheusFailures.set(0);
+            prometheusLastSuccess.set(now);
+        } catch (RuntimeException e) {
+            int count = prometheusFailures.incrementAndGet();
+            log.warn("Prometheus 지표 수집 실패 ({}회 연속): {}", count, e.getMessage());
+            if (count == FAILURE_ALERT_AT) {
+                evaluator.raise("PROMETHEUS_UNAVAILABLE", "prometheus",
+                        "Prometheus 지표 수집이 %d회 연속 실패: %s".formatted(count, e.getMessage()),
+                        count, FAILURE_ALERT_AT);
+            }
+        }
+    }
+
     public Instant lastSuccessAt() { return lastSuccess.get(); }
     public int consecutiveFailures() { return failures.get(); }
+    public Instant prometheusLastSuccessAt() { return prometheusLastSuccess.get(); }
+    public int prometheusConsecutiveFailures() { return prometheusFailures.get(); }
 }

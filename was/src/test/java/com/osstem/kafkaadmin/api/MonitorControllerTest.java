@@ -53,6 +53,8 @@ class MonitorControllerTest {
         given(collector.lastSuccessAt()).willReturn(Instant.parse("2026-08-07T01:00:00Z"));
         given(collector.consecutiveFailures()).willReturn(0);
         given(certChecker.lastStatuses()).willReturn(List.of());
+        given(collector.prometheusLastSuccessAt()).willReturn(Instant.parse("2026-08-07T01:00:30Z"));
+        given(collector.prometheusConsecutiveFailures()).willReturn(2);
 
         mvc.perform(get("/api/alerts"))
                 .andExpect(status().isOk())
@@ -60,7 +62,9 @@ class MonitorControllerTest {
         mvc.perform(get("/api/monitor/status"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.consecutiveFailures").value(0))
-                .andExpect(jsonPath("$.lastCollectedAt").value("2026-08-07T01:00:00Z"));
+                .andExpect(jsonPath("$.lastCollectedAt").value("2026-08-07T01:00:00Z"))
+                .andExpect(jsonPath("$.prometheusLastCollectedAt").value("2026-08-07T01:00:30Z"))
+                .andExpect(jsonPath("$.prometheusConsecutiveFailures").value(2));
     }
 
     @Test
