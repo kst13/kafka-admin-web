@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '@/api/client'
+import { ALERT_RULE_LABELS, alertLink } from '@/lib/metrics'
 
 interface AlertEvent {
   ruleType: string
@@ -13,6 +14,16 @@ interface AlertEvent {
 
 const alerts = ref<AlertEvent[]>([])
 const error = ref('')
+
+// 템플릿에서 non-null 단언을 쓰지 않도록 라벨·링크를 미리 계산한다
+const rows = computed(() =>
+  alerts.value.map((a) => ({
+    ...a,
+    label: ALERT_RULE_LABELS[a.ruleType]?.label ?? a.ruleType,
+    description: ALERT_RULE_LABELS[a.ruleType]?.description ?? '',
+    link: alertLink(a.ruleType, a.subjectKey),
+  })),
+)
 
 onMounted(async () => {
   try {
@@ -33,10 +44,13 @@ onMounted(async () => {
         <tr><th>시각</th><th>유형</th><th>대상</th><th>내용</th></tr>
       </thead>
       <tbody>
-        <tr v-for="a in alerts" :key="a.occurredAt + a.ruleType + a.subjectKey">
+        <tr v-for="a in rows" :key="a.occurredAt + a.ruleType + a.subjectKey">
           <td>{{ new Date(a.occurredAt).toLocaleString() }}</td>
-          <td>{{ a.ruleType }}</td>
-          <td>{{ a.subjectKey }}</td>
+          <td :title="a.description">{{ a.label }}</td>
+          <td>
+            <RouterLink v-if="a.link" :to="a.link">{{ a.subjectKey }}</RouterLink>
+            <template v-else>{{ a.subjectKey }}</template>
+          </td>
           <td>{{ a.message }}</td>
         </tr>
       </tbody>
