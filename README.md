@@ -17,6 +17,7 @@ Kafka 3노드 클러스터(KRaft, SASL_SSL) 관리자 사이트.
 - [토픽 CUD 설계](docs/phase3-topic-crud-design.md) · [구현 계획](docs/plan-phase3-topic-crud.md) — 3단계 첫 슬라이스 (ops 모듈 골격)
 - [Kafka 앱 계정 관리 설계](docs/superpowers/specs/2026-09-04-kafka-app-accounts-design.md) — 앱별 SCRAM 계정 + 토픽 produce/consume 권한(ACL). 선결: `kafka-admin` Cluster Alter 권한
 - [Schema Registry 화면 설계](docs/superpowers/specs/2026-09-08-schema-registry-design.md) — 토픽 기준 스키마 조회·등록(호환성 검사)·호환성 변경·삭제. 설정: `SCHEMA_REGISTRY_URLS`
+- [Prometheus 지표 연동 설계](docs/superpowers/specs/2026-09-09-prometheus-metrics-design.md) — 클러스터 상태 배지·브로커 상세(`/brokers/:id`)·토픽 유입 차트·알림 규칙 7개. 설정: `PROMETHEUS_URL`
 - [개선 백로그](docs/improvement-backlog.md) — 운영 효과 순 제안 목록 (웹훅 알림·감사 로그 화면·오프셋 리셋 등)
 - [k6 부하 테스트 스파이크](docs/spike-k6-kafka.md) — xk6-kafka 검증 기록·재개 절차 (`loadtest/spike-produce.js`)
 - [배포 트러블슈팅](docs/deploy-troubleshooting.md) — 운영 서버 수동 배포 시 함정과 해결 (.env·truststore·ACL)
@@ -34,7 +35,7 @@ ADMIN_INITIAL_PASSWORD=devpw KAFKA_BOOTSTRAP_SERVERS=localhost:9092 KAFKA_SECURI
 cd web && npm run dev
 ```
 
-환경변수 대신 `was/config/application-local.yml`(gitignore 대상)에 `app.kafka.*`, `app.admin-initial-password` 를 적어두면 `cd was && ./gradlew bootRun` 만으로 실행된다. bootRun 이 `local` 프로파일을 켜서 이 파일을 읽으며(IDE 실행 시엔 active profile 에 `local` 지정), 테스트에는 적용되지 않는다. Schema Registry 를 붙이려면 같은 파일에 `app.schema-registry.urls: http://10.10.10.17:8081,http://10.10.10.18:8081` 을 적는다(비우면 스키마 메뉴가 숨겨진다).
+환경변수 대신 `was/config/application-local.yml`(gitignore 대상)에 `app.kafka.*`, `app.admin-initial-password` 를 적어두면 `cd was && ./gradlew bootRun` 만으로 실행된다. bootRun 이 `local` 프로파일을 켜서 이 파일을 읽으며(IDE 실행 시엔 active profile 에 `local` 지정), 테스트에는 적용되지 않는다. Schema Registry 를 붙이려면 같은 파일에 `app.schema-registry.urls: http://10.10.10.17:8081,http://10.10.10.18:8081` 을 적는다(비우면 스키마 메뉴가 숨겨진다). Prometheus 지표를 보려면 같은 파일에 `app.prometheus.url: http://10.10.10.19:9090` 을 적는다(비우면 관련 배지·화면이 숨겨진다).
 
 ### 배포
 

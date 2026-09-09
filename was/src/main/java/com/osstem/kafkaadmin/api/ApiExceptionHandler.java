@@ -1,6 +1,10 @@
 package com.osstem.kafkaadmin.api;
 
 import com.osstem.kafkaadmin.kafka.KafkaUnavailableException;
+import com.osstem.kafkaadmin.metrics.BrokerNotFoundException;
+import com.osstem.kafkaadmin.metrics.PrometheusNotConfiguredException;
+import com.osstem.kafkaadmin.metrics.PrometheusQueryException;
+import com.osstem.kafkaadmin.metrics.PrometheusUnavailableException;
 import com.osstem.kafkaadmin.ops.GroupExistsException;
 import com.osstem.kafkaadmin.ops.KafkaAppExistsException;
 import com.osstem.kafkaadmin.ops.KafkaAppNotFoundException;
@@ -110,5 +114,22 @@ public class ApiExceptionHandler {
     @ExceptionHandler(InvalidSchemaException.class)
     public ResponseEntity<Map<String, String>> invalidSchema(InvalidSchemaException e) {
         return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+
+    // --- Prometheus ---
+    @ExceptionHandler({PrometheusNotConfiguredException.class, PrometheusUnavailableException.class})
+    public ResponseEntity<Map<String, String>> prometheusUnavailable(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+    }
+
+    // 카탈로그 질의가 거부된 것은 코드 결함 → 500
+    @ExceptionHandler(PrometheusQueryException.class)
+    public ResponseEntity<Map<String, String>> prometheusQuery(PrometheusQueryException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(BrokerNotFoundException.class)
+    public ResponseEntity<Map<String, String>> brokerNotFound(BrokerNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
     }
 }
