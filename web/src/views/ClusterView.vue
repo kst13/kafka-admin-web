@@ -28,7 +28,7 @@ const urpTrend = ref<TrendPoint[]>([])
 const diskTrend = ref<TrendPoint[]>([])
 const diskTrendBroker = ref<number | null>(null)
 
-const { configured: prometheusConfigured } = usePrometheus()
+const { configured: prometheusConfigured, ready: prometheusReady } = usePrometheus()
 const health = ref<ClusterHealth | null>(null)
 const healthError = ref('')
 
@@ -49,6 +49,7 @@ function brokerCells(id: number): string[] {
 }
 
 async function loadHealth() {
+  await prometheusReady()
   if (!prometheusConfigured.value) return
   try {
     health.value = await api<ClusterHealth>('/cluster/health')

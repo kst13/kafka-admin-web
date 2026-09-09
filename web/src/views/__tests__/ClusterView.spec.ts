@@ -4,7 +4,11 @@ import { ref } from 'vue'
 
 vi.mock('@/api/client', () => ({ api: vi.fn() }))
 const configured = ref(true)
-vi.mock('@/composables/usePrometheus', () => ({ usePrometheus: () => ({ configured }) }))
+// 기본값: 즉시 resolve. 레이스 컨디션 테스트에서만 컨트롤 가능한 Promise 로 교체한다.
+let readyImpl: () => Promise<void> = () => Promise.resolve()
+vi.mock('@/composables/usePrometheus', () => ({
+  usePrometheus: () => ({ configured, ready: () => readyImpl() }),
+}))
 
 import { api } from '@/api/client'
 import ClusterView from '../ClusterView.vue'
@@ -44,6 +48,7 @@ describe('ClusterView (Prometheus)', () => {
   beforeEach(() => {
     vi.mocked(api).mockReset()
     configured.value = true
+    readyImpl = () => Promise.resolve()
   })
 
   it('배지 6개와 브로커 지표 열을 보여주고 브로커 id 는 상세 링크다', async () => {
@@ -91,5 +96,26 @@ describe('ClusterView (Prometheus)', () => {
     expect(w.findAll('thead th').map((th) => th.text())).not.toContain('유입')
     expect(w.findAll('tbody tr')[0]?.find('a').exists()).toBe(false)
     expect(vi.mocked(api).mock.calls.map((c) => c[0])).not.toContain('/cluster/health')
+  })
+
+  it('App.vue 의 Prometheus 상태 로드가 늦게 끝나도(레이스) 배지가 표시된다', async () => {
+    mockApi()
+    // App.vue 의 loadPrometheus() 가 아직 끝나지 않은 상태를 재현: configured 가 false 로 시작하고,
+    // ready() 가 resolve 돼야 true 로 바뀐다.
+    configured.value = false
+    let resolveReady!: () => void
+    readyImpl = () => new Promise<void>((resolve) => { resolveReady = resolve })
+
+    const w = mount(ClusterView, mountOpts)
+    await flushPromises()
+    // ready() 가 아직 진행 중이므로 배지는 없어야 한다
+    expect(w.find('.health-badges').exists()).toBe(false)
+
+    configured.value = true
+    resolveReady()
+    await flushPromises()
+
+    expect(w.findAll('.health-badges .badge')).toHaveLength(6)
+    expect(vi.mocked(api).mock.calls.map((c) => c[0])).toContain('/cluster/health')
   })
 })
