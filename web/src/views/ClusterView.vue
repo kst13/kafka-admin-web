@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '@/api/client'
 import TrendChart from '@/components/TrendChart.vue'
+import { usePrometheus } from '@/composables/usePrometheus'
+import { healthBadge, formatBytesPerSec, formatMs, formatPct, type ClusterHealth } from '@/lib/metrics'
 
 interface Broker { id: number; host: string; port: number }
 interface Cluster { clusterId: string; controllerId: number; brokers: Broker[] }
@@ -10,6 +12,8 @@ interface MonitorStatus {
   lastCollectedAt: string | null
   consecutiveFailures: number
   certs: CertStatus[]
+  prometheusLastCollectedAt: string | null
+  prometheusConsecutiveFailures: number
 }
 interface BrokerDisk { brokerId: number; usedPercent: number }
 interface DiskStatus { thresholdPct: number; brokers: BrokerDisk[] }
@@ -23,6 +27,35 @@ const disk = ref<DiskStatus | null>(null)
 const urpTrend = ref<TrendPoint[]>([])
 const diskTrend = ref<TrendPoint[]>([])
 const diskTrendBroker = ref<number | null>(null)
+
+const { configured: prometheusConfigured } = usePrometheus()
+const health = ref<ClusterHealth | null>(null)
+const healthError = ref('')
+
+const badges = computed(() =>
+  health.value && cluster.value ? healthBadge(health.value, cluster.value.brokers.length) : [],
+)
+const snapshotById = computed(() => new Map((health.value?.brokers ?? []).map((b) => [b.id, b])))
+const EMPTY_CELLS = ['—', '—', '—', '—', '—', '—']
+// 열 순서: 유입, 유출, Produce p99, Fetch p99, 핸들러 유휴, 힙. scraped=false 또는 스냅샷 없음이면 —
+function brokerCells(id: number): string[] {
+  const s = snapshotById.value.get(id)
+  if (!s || !s.scraped) return EMPTY_CELLS
+  return [
+    formatBytesPerSec(s.bytesInPerSec), formatBytesPerSec(s.bytesOutPerSec),
+    formatMs(s.p99ProduceMs), formatMs(s.p99FetchMs),
+    formatPct(s.handlerIdlePct), formatPct(s.heapUsedPct),
+  ]
+}
+
+async function loadHealth() {
+  if (!prometheusConfigured.value) return
+  try {
+    health.value = await api<ClusterHealth>('/cluster/health')
+  } catch (e) {
+    healthError.value = e instanceof Error ? e.message : 'Prometheus 접속 불가'
+  }
+}
 
 async function fetchTrend(type: string, subject: string): Promise<TrendPoint[]> {
   const pts = await api<SamplePoint[]>(
@@ -46,6 +79,7 @@ onMounted(async () => {
   } catch (e) {
     error.value = e instanceof Error ? e.message : '조회 실패'
   }
+  await loadHealth()
   try {
     monitor.value = await api<MonitorStatus>('/monitor/status')
   } catch {
@@ -76,13 +110,29 @@ onMounted(async () => {
     <p v-if="error" class="error">{{ error }}</p>
     <template v-else-if="cluster">
       <p>Cluster ID: {{ cluster.clusterId }}</p>
+      <template v-if="prometheusConfigured">
+        <div v-if="badges.length > 0" class="health-badges">
+          <span v-for="b in badges" :key="b.label" class="badge" :class="b.level">{{ b.label }}</span>
+        </div>
+        <p v-else-if="healthError" class="prom-error">{{ healthError }}</p>
+      </template>
       <table>
-        <thead><tr><th>브로커 ID</th><th>주소</th><th>역할</th></tr></thead>
+        <thead>
+          <tr>
+            <th>브로커 ID</th><th>주소</th><th>역할</th>
+            <template v-if="prometheusConfigured">
+              <th>유입</th><th>유출</th><th>Produce p99</th><th>Fetch p99</th><th>핸들러 유휴</th><th>힙</th>
+            </template>
+          </tr>
+        </thead>
         <tbody>
           <tr v-for="b in cluster.brokers" :key="b.id">
-            <td>{{ b.id }}</td>
+            <td><RouterLink v-if="prometheusConfigured" :to="`/brokers/${b.id}`">{{ b.id }}</RouterLink><template v-else>{{ b.id }}</template></td>
             <td>{{ b.host }}:{{ b.port }}</td>
             <td>{{ b.id === cluster.controllerId ? '컨트롤러' : '' }}</td>
+            <template v-if="prometheusConfigured">
+              <td v-for="(c, i) in brokerCells(b.id)" :key="i" class="num">{{ c }}</td>
+            </template>
           </tr>
         </tbody>
       </table>
@@ -93,6 +143,13 @@ onMounted(async () => {
           {{ monitor.lastCollectedAt ? new Date(monitor.lastCollectedAt).toLocaleString() : '없음' }}
           <span v-if="monitor.consecutiveFailures > 0" class="warn">
             (연속 실패 {{ monitor.consecutiveFailures }}회)
+          </span>
+        </p>
+        <p v-if="prometheusConfigured">
+          Prometheus 마지막 수집:
+          {{ monitor.prometheusLastCollectedAt ? new Date(monitor.prometheusLastCollectedAt).toLocaleString() : '없음' }}
+          <span v-if="monitor.prometheusConsecutiveFailures > 0" class="warn">
+            (연속 실패 {{ monitor.prometheusConsecutiveFailures }}회)
           </span>
         </p>
         <table v-if="monitor.certs.length > 0">
@@ -155,6 +212,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.health-badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 1rem; }
+.badge { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.crit { background: var(--crit-soft); color: var(--crit); }
+.prom-error { color: var(--crit); font-size: 0.9rem; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
 .warn { color: var(--crit); font-weight: bold; }
 .bar-cell { width: 40%; min-width: 160px; }
 .bar { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
