@@ -111,7 +111,7 @@ export const ALERT_RULE_LABELS: Record<string, { label: string; description: str
   PROMETHEUS_UNAVAILABLE: { label: 'Prometheus 수집 실패', description: 'Prometheus 지표 수집이 연속 실패했습니다' },
 }
 
-const BROKER_RULES = new Set(['LATENCY_HIGH', 'HANDLER_SATURATED', 'HEAP_HIGH', 'DISK_HIGH'])
+export const BROKER_RULES = new Set(['LATENCY_HIGH', 'HANDLER_SATURATED', 'HEAP_HIGH', 'DISK_HIGH'])
 const CLUSTER_RULES = new Set(['OFFLINE_PARTITIONS', 'URP_HIGH', 'UNCLEAN_ELECTION', 'BROKER_DOWN'])
 
 export function alertLink(ruleType: string, subjectKey: string): string | null {

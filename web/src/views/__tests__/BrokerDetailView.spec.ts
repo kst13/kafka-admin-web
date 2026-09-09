@@ -25,11 +25,11 @@ const alerts = [
   { ruleType: 'LAG_HIGH', subjectKey: '2', message: '그룹 이름이 2 인 랙 알림', value: 1, threshold: 1, occurredAt: '2026-09-09T00:00:00Z' },
 ]
 
-function seriesFor(url: string) {
+function seriesFor(url: string, v = 7) {
   const key = new URL(url, 'http://x').searchParams.get('key') ?? ''
   const range = new URL(url, 'http://x').searchParams.get('range') ?? ''
   const unit = key.endsWith('_MS') ? 'ms' : key.endsWith('_PCT') ? '%' : key === 'BROKER_REQUEST_QUEUE' ? 'count' : 'bytes/s'
-  return { key, unit, range, stepSeconds: 30, series: [{ name: key, points: [{ t: '2026-09-09T00:00:00Z', v: 7 }] }] }
+  return { key, unit, range, stepSeconds: 30, series: [{ name: key, points: [{ t: '2026-09-09T00:00:00Z', v }] }] }
 }
 
 function mockApi() {
@@ -104,5 +104,59 @@ describe('BrokerDetailView', () => {
     const w = mount(BrokerDetailView)
     await flushPromises()
     expect(w.find('.error').text()).toContain('존재하지 않는 브로커')
+  })
+
+  it('범위를 빠르게 전환하면 나중에 시작한 요청의 결과만 반영한다', async () => {
+    const resolvers: Array<() => void> = []
+    vi.mocked(api).mockImplementation((url: string) => {
+      if (url === '/cluster/health') return Promise.resolve(health)
+      if (url === '/alerts') return Promise.resolve(alerts)
+      if (url.startsWith('/brokers/2/series')) {
+        const range = new URL(url, 'http://x').searchParams.get('range')
+        if (range === '1h') {
+          return new Promise((resolve) => { resolvers.push(() => resolve(seriesFor(url, 1))) })
+        }
+        return Promise.resolve(seriesFor(url, 99))
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`))
+    })
+
+    const w = mount(BrokerDetailView)
+    await flushPromises() // health/alerts resolve; 1h series requests are pending (deferred)
+
+    const btn = w.findAll('.range-tabs button').find((b) => b.text() === '24시간')
+    await btn?.trigger('click')
+    await flushPromises() // 24h series resolve immediately and win the race
+
+    resolvers.forEach((resolve) => resolve())
+    await flushPromises() // stale 1h batch resolves after, but must be discarded
+
+    const charts = w.findAllComponents(MetricChart)
+    const throughput = charts[0]?.props('series') as { points: { v: number }[] }[]
+    expect(throughput.every((s) => s.points[0]?.v === 99)).toBe(true)
+    expect(btn?.classes()).toContain('on')
+  })
+
+  it('시리즈 조회 실패 배너는 다음 범위가 성공하면 사라진다', async () => {
+    vi.mocked(api).mockImplementation((url: string) => {
+      if (url === '/cluster/health') return Promise.resolve(health)
+      if (url === '/alerts') return Promise.resolve(alerts)
+      if (url.startsWith('/brokers/2/series')) {
+        const range = new URL(url, 'http://x').searchParams.get('range')
+        if (range === '1h') return Promise.reject(new Error('시리즈 조회 실패(1h)'))
+        return Promise.resolve(seriesFor(url))
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`))
+    })
+
+    const w = mount(BrokerDetailView)
+    await flushPromises()
+    expect(w.find('.error').exists()).toBe(true)
+    expect(w.find('.error').text()).toContain('시리즈 조회 실패(1h)')
+
+    const btn = w.findAll('.range-tabs button').find((b) => b.text() === '24시간')
+    await btn?.trigger('click')
+    await flushPromises()
+    expect(w.find('.error').exists()).toBe(false)
   })
 })

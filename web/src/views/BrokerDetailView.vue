@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { api } from '@/api/client'
 import MetricChart from '@/components/MetricChart.vue'
 import {
-  SERIES_RANGES, ALERT_RULE_LABELS, formatBytesPerSec, formatMs, formatPct, formatCount, formatValue,
+  SERIES_RANGES, ALERT_RULE_LABELS, BROKER_RULES, formatBytesPerSec, formatMs, formatPct, formatCount, formatValue,
   type ClusterHealth, type BrokerSnapshot, type SeriesResponse, type Series, type SeriesRange,
 } from '@/lib/metrics'
 
@@ -14,6 +14,7 @@ const route = useRoute()
 const id = computed(() => Number(route.params.id))
 const snapshot = ref<BrokerSnapshot | null>(null)
 const error = ref('')
+const seriesError = ref('')
 const range = ref<SeriesRange>('1h')
 const alerts = ref<AlertEvent[]>([])
 const seriesByKey = ref<Map<string, Series[]>>(new Map())
@@ -26,7 +27,6 @@ const CHARTS = [
   { title: 'JVM', unit: '%', keys: ['BROKER_HEAP_USED_PCT', 'BROKER_GC_TIME_PCT'] },
 ]
 const ALL_KEYS = [...CHARTS.flatMap((c) => c.keys), 'BROKER_REQUEST_QUEUE']
-const BROKER_RULES = new Set(['LATENCY_HIGH', 'HANDLER_SATURATED', 'HEAP_HIGH', 'DISK_HIGH'])
 
 function chartSeries(keys: string[]): Series[] {
   return keys.flatMap((k) => seriesByKey.value.get(k) ?? [])
@@ -36,16 +36,23 @@ const brokerAlerts = computed(() =>
   alerts.value.filter((a) => a.subjectKey === String(id.value) && BROKER_RULES.has(a.ruleType)),
 )
 
+// 범위를 빠르게 여러 번 전환하면 요청들이 경쟁 상태가 되므로, 세대 번호로 마지막에 시작된
+// 요청만 결과를 반영하도록 막는다 (먼저 시작해 나중에 끝난 이전 세대는 버린다).
+let loadGeneration = 0
+
 async function loadSeries() {
+  const gen = ++loadGeneration
+  seriesError.value = ''
   const results = await Promise.all(ALL_KEYS.map(async (key) => {
     try {
       const r = await api<SeriesResponse>(`/brokers/${id.value}/series?key=${key}&range=${range.value}`)
       return [key, r.series] as const
     } catch (e) {
-      if (!error.value) error.value = e instanceof Error ? e.message : '조회 실패'
+      if (gen === loadGeneration && !seriesError.value) seriesError.value = e instanceof Error ? e.message : '조회 실패'
       return [key, [] as Series[]] as const
     }
   }))
+  if (gen !== loadGeneration) return
   seriesByKey.value = new Map(results)
   const q = seriesByKey.value.get('BROKER_REQUEST_QUEUE')?.[0]?.points
   requestQueue.value = q && q.length > 0 ? q[q.length - 1]!.v : null
@@ -94,6 +101,7 @@ watch(range, () => { if (snapshot.value) loadSeries() })
           {{ r.label }}
         </button>
       </div>
+      <p v-if="seriesError" class="error">{{ seriesError }}</p>
       <MetricChart v-for="c in CHARTS" :key="c.title" :series="chartSeries(c.keys)" :unit="c.unit" :title="c.title" />
       <h2>이 브로커의 알림</h2>
       <p v-if="brokerAlerts.length === 0" class="hint">알림이 없습니다.</p>
