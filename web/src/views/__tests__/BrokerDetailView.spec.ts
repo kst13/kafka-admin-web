@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { ref } from 'vue'
 
 vi.mock('@/api/client', () => ({ api: vi.fn() }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { id: '2' } }) }))
+
+const prometheusConfigured = ref(true)
+vi.mock('@/composables/usePrometheus', () => ({
+  usePrometheus: () => ({ configured: prometheusConfigured, ready: () => Promise.resolve() }),
+}))
 
 import { api } from '@/api/client'
 import BrokerDetailView from '../BrokerDetailView.vue'
@@ -42,7 +48,18 @@ function mockApi() {
 }
 
 describe('BrokerDetailView', () => {
-  beforeEach(() => { vi.mocked(api).mockReset() })
+  beforeEach(() => {
+    vi.mocked(api).mockReset()
+    prometheusConfigured.value = true
+  })
+
+  it('Prometheus 미설정이면 안내 문구만 보여주고 /cluster/health 를 조회하지 않는다', async () => {
+    prometheusConfigured.value = false
+    const w = mount(BrokerDetailView)
+    await flushPromises()
+    expect(w.find('.error').text()).toContain('Prometheus 가 설정되지 않았습니다')
+    expect(vi.mocked(api)).not.toHaveBeenCalled()
+  })
 
   it('카드에 이 브로커의 현재값을 포맷해 보여준다', async () => {
     mockApi()

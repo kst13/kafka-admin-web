@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '@/api/client'
 import MetricChart from '@/components/MetricChart.vue'
+import { usePrometheus } from '@/composables/usePrometheus'
 import {
   SERIES_RANGES, ALERT_RULE_LABELS, BROKER_RULES, formatBytesPerSec, formatMs, formatPct, formatCount, formatValue,
   type ClusterHealth, type BrokerSnapshot, type SeriesResponse, type Series, type SeriesRange,
@@ -19,6 +20,7 @@ const range = ref<SeriesRange>('1h')
 const alerts = ref<AlertEvent[]>([])
 const seriesByKey = ref<Map<string, Series[]>>(new Map())
 const requestQueue = ref<number | null>(null)
+const { configured: prometheusConfigured, ready } = usePrometheus()
 
 const CHARTS = [
   { title: '처리량', unit: 'bytes/s', keys: ['BROKER_BYTES_IN', 'BROKER_BYTES_OUT'] },
@@ -59,6 +61,11 @@ async function loadSeries() {
 }
 
 onMounted(async () => {
+  await ready()
+  if (!prometheusConfigured.value) {
+    error.value = 'Prometheus 가 설정되지 않았습니다'
+    return
+  }
   try {
     const health = await api<ClusterHealth>('/cluster/health')
     snapshot.value = health.brokers.find((b) => b.id === id.value) ?? null

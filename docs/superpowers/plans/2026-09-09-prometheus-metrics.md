@@ -4142,3 +4142,4 @@ git add -A && git commit -m "fix: 전체 검증에서 발견된 수정"
 - 알림 링크는 스펙(브로커 규칙 → `/brokers/{id}`, 파티션 규칙 → `/`)에 더해 `DISK_HIGH` → `/brokers/{id}`, `LAG_HIGH` → `/groups/{id}` 를 붙인다(기존 규칙에도 같은 편의를 제공).
 - Prometheus 스냅샷에서 `scraped=false` 브로커의 브로커별 샘플은 저장하지 않는다(0 값이 `HANDLER_SATURATED` 거짓 알림을 만들기 때문).
 - 토픽 상세 Prometheus 모드의 파티션 현재값은 `range=1h` 시계열의 마지막 포인트를 쓴다(현재값 전용 API 를 추가하지 않음 — 스펙 API 4개 유지).
+- 스펙은 Prometheus 경로에서만 토픽 상세의 파티션별 드롭다운과 `PRODUCED_PARTITION` 드릴다운을 제거했지만, 데모 데이터 코드 경로를 함께 지우기 위해 본 계획에서는 Prometheus 미설정(폴백) `TopicDetailView` 에서도 동일하게 제거했다.

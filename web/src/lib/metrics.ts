@@ -114,8 +114,12 @@ export const ALERT_RULE_LABELS: Record<string, { label: string; description: str
 export const BROKER_RULES = new Set(['LATENCY_HIGH', 'HANDLER_SATURATED', 'HEAP_HIGH', 'DISK_HIGH'])
 const CLUSTER_RULES = new Set(['OFFLINE_PARTITIONS', 'URP_HIGH', 'UNCLEAN_ELECTION', 'BROKER_DOWN'])
 
-export function alertLink(ruleType: string, subjectKey: string): string | null {
-  if (BROKER_RULES.has(ruleType)) return `/brokers/${encodeURIComponent(subjectKey)}`
+export function alertLink(ruleType: string, subjectKey: string, prometheusConfigured: boolean): string | null {
+  if (BROKER_RULES.has(ruleType)) {
+    // Prometheus 미설정이면 브로커 상세 화면 자체가 없다 — 링크를 만들지 않는다
+    if (!prometheusConfigured) return null
+    return `/brokers/${encodeURIComponent(subjectKey)}`
+  }
   if (CLUSTER_RULES.has(ruleType)) return '/'
   if (ruleType === 'LAG_HIGH') return `/groups/${encodeURIComponent(subjectKey)}`
   return null

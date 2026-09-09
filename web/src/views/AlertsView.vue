@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { api } from '@/api/client'
 import { ALERT_RULE_LABELS, alertLink } from '@/lib/metrics'
+import { usePrometheus } from '@/composables/usePrometheus'
 
 interface AlertEvent {
   ruleType: string
@@ -14,6 +15,7 @@ interface AlertEvent {
 
 const alerts = ref<AlertEvent[]>([])
 const error = ref('')
+const { configured: prometheusConfigured, ready } = usePrometheus()
 
 // 템플릿에서 non-null 단언을 쓰지 않도록 라벨·링크를 미리 계산한다
 const rows = computed(() =>
@@ -21,13 +23,14 @@ const rows = computed(() =>
     ...a,
     label: ALERT_RULE_LABELS[a.ruleType]?.label ?? a.ruleType,
     description: ALERT_RULE_LABELS[a.ruleType]?.description ?? '',
-    link: alertLink(a.ruleType, a.subjectKey),
+    link: alertLink(a.ruleType, a.subjectKey, prometheusConfigured.value),
   })),
 )
 
 onMounted(async () => {
   try {
-    alerts.value = await api<AlertEvent[]>('/alerts')
+    const [, list] = await Promise.all([ready(), api<AlertEvent[]>('/alerts')])
+    alerts.value = list
   } catch (e) {
     error.value = e instanceof Error ? e.message : '조회 실패'
   }
