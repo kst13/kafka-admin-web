@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { api } from '@/api/client'
+import ClusterDashboard from '@/components/ClusterDashboard.vue'
 import TrendChart from '@/components/TrendChart.vue'
 import { usePrometheus } from '@/composables/usePrometheus'
 import { healthBadge, formatBytesPerSec, formatMs, formatPct, type ClusterHealth } from '@/lib/metrics'
@@ -53,7 +54,9 @@ async function loadHealth() {
   if (!prometheusConfigured.value) return
   try {
     health.value = await api<ClusterHealth>('/cluster/health')
+    healthError.value = ''
   } catch (e) {
+    health.value = null
     healthError.value = e instanceof Error ? e.message : 'Prometheus 접속 불가'
   }
 }
@@ -74,40 +77,48 @@ async function loadDiskTrend(brokerId: number) {
   }
 }
 
-onMounted(async () => {
+let refreshing = false
+async function refreshCluster() {
+  if (refreshing) return
+  refreshing = true
   try {
-    cluster.value = await api<Cluster>('/cluster')
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : '조회 실패'
-  }
-  await loadHealth()
-  try {
-    monitor.value = await api<MonitorStatus>('/monitor/status')
-  } catch {
-    // 감시 상태 카드만 생략하고 클러스터 화면은 그대로 둔다
-  }
-  try {
-    urpTrend.value = await fetchTrend('URP', 'cluster')
-  } catch {
-    // 차트만 생략
-  }
-  try {
-    disk.value = await api<DiskStatus>('/monitor/disk')
-  } catch {
-    // 디스크 카드만 생략 (브로커 무응답 등)
-  }
-  // 사용률이 가장 높은 브로커의 추이를 기본으로 보여준다
-  let worst: BrokerDisk | null = null
-  for (const b of disk.value?.brokers ?? []) {
-    if (!worst || b.usedPercent > worst.usedPercent) worst = b
-  }
-  if (worst) await loadDiskTrend(worst.brokerId)
-})
+    try {
+      cluster.value = await api<Cluster>('/cluster')
+      error.value = ''
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '조회 실패'
+    }
+    await loadHealth()
+    try {
+      monitor.value = await api<MonitorStatus>('/monitor/status')
+    } catch {
+      // 감시 상태 카드만 생략하고 클러스터 화면은 그대로 둔다
+    }
+    try {
+      urpTrend.value = await fetchTrend('URP', 'cluster')
+    } catch {
+      // 차트만 생략
+    }
+    try {
+      disk.value = await api<DiskStatus>('/monitor/disk')
+    } catch {
+      // 디스크 카드만 생략 (브로커 무응답 등)
+    }
+    // 사용률이 가장 높은 브로커의 추이를 기본으로 보여준다
+    let worst: BrokerDisk | null = null
+    for (const b of disk.value?.brokers ?? []) {
+      if (!worst || b.usedPercent > worst.usedPercent) worst = b
+    }
+    if (worst) await loadDiskTrend(diskTrendBroker.value ?? worst.brokerId)
+  } finally { refreshing = false }
+}
+onMounted(refreshCluster)
 </script>
 
 <template>
   <main>
     <h1>클러스터</h1>
+    <ClusterDashboard @refresh="refreshCluster" />
     <p v-if="error" class="error">{{ error }}</p>
     <template v-else-if="cluster">
       <p>Cluster ID: {{ cluster.clusterId }}</p>

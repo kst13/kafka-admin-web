@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
 import { ref } from 'vue'
 
 vi.mock('@/api/client', () => ({ api: vi.fn() }))
@@ -12,6 +12,9 @@ vi.mock('@/composables/usePrometheus', () => ({
 
 import { api } from '@/api/client'
 import ClusterView from '../ClusterView.vue'
+
+enableAutoUnmount(afterEach)
+afterEach(() => vi.useRealTimers())
 
 const cluster = { clusterId: 'c1', controllerId: 1, brokers: [
   { id: 1, host: '10.0.0.1', port: 9094 }, { id: 2, host: '10.0.0.2', port: 9094 },
@@ -33,6 +36,7 @@ const health = {
 
 function mockApi(healthResult: unknown = health) {
   vi.mocked(api).mockImplementation((url: string) => {
+    if (url === '/dashboard') return Promise.resolve({ sampledAt: null, stale: true, lagTop: [], growingLagTop: [], incomingTop: [] })
     if (url === '/cluster') return Promise.resolve(cluster)
     if (url === '/monitor/status') return Promise.resolve(monitor)
     if (url === '/cluster/health') return healthResult instanceof Error ? Promise.reject(healthResult) : Promise.resolve(healthResult)
@@ -118,4 +122,30 @@ describe('ClusterView (Prometheus)', () => {
     expect(w.findAll('.health-badges .badge')).toHaveLength(6)
     expect(vi.mocked(api).mock.calls.map((c) => c[0])).toContain('/cluster/health')
   })
+  it('대시보드가 스텁이어도 부모가 초기 클러스터 정보를 조회한다', async () => {
+    mockApi()
+    const w = mount(ClusterView, { global: { stubs: { ...mountOpts.global.stubs, ClusterDashboard: true } } })
+    await flushPromises()
+    expect(w.text()).toContain('Cluster ID: c1')
+    expect(w.findAll('.health-badges .badge')).toHaveLength(6)
+    expect(vi.mocked(api).mock.calls.filter(([url]) => url === '/cluster')).toHaveLength(1)
+    expect(vi.mocked(api).mock.calls.map(([url]) => url)).toContain('/monitor/disk')
+  })
+
+  it('타이머는 요약만 조회하고 수동 갱신은 클러스터 정보도 조회한다', async () => {
+    vi.useFakeTimers()
+    mockApi()
+    const w = mount(ClusterView, mountOpts)
+    await flushPromises()
+    vi.mocked(api).mockClear()
+    await vi.advanceTimersByTimeAsync(60_000)
+    await flushPromises()
+    expect(vi.mocked(api).mock.calls.map(([url]) => url)).toEqual(['/dashboard'])
+    vi.mocked(api).mockClear()
+    await w.find('.dashboard button').trigger('click')
+    await flushPromises()
+    const urls = vi.mocked(api).mock.calls.map(([url]) => url)
+    expect(urls).toEqual(expect.arrayContaining(['/dashboard', '/cluster', '/cluster/health', '/monitor/disk']))
+  })
+
 })
