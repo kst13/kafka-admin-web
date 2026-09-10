@@ -5,7 +5,7 @@ Kafka 관리자 사이트의 **개발자(DEVELOPER)용** 안내서 — 화면 �
 
 ## 개발자가 이 사이트에서 할 수 있는 것
 
-DEVELOPER 역할은 **조회 전용**이다 (조치 버튼은 화면에 표시되지 않음).
+DEVELOPER 역할은 **조회 전용**이다 (조치 버튼은 화면에 표시되지 않음). 예외는 **스키마 등록** 하나로, 호환성 검사를 통과한 스키마는 DEVELOPER 도 등록할 수 있다.
 
 | 하고 싶은 것 | 화면 |
 |---|---|
@@ -14,6 +14,7 @@ DEVELOPER 역할은 **조회 전용**이다 (조치 버튼은 화면에 표시�
 | 소비가 밀리는지, 언제부터인지 | 그룹 상세 → 랙 추이 차트, 시간대별 소비량 |
 | 어느 인스턴스가 어느 파티션을 잡았는지 | 그룹 상세 → **멤버** 표 (리밸런스·쏠림 진단) |
 | 토픽 구성·설정 확인 | 토픽 상세 → 파티션/ISR, retention 등 설정 |
+| 메시지 스키마 등록·조회 | 메뉴 **스키마** 또는 토픽 상세 → 스키마 섹션 (아래 "스키마 등록" 절) |
 
 토픽 생성 신청 워크플로우는 4단계 예정. 그 전까지는 토픽 생성과 **컨슈머 그룹 사전 등록**(앱 배포 전에 group.id 와 시작 위치를 미리 잡아두는 것)을 운영자에게 요청한다.
 
@@ -80,6 +81,90 @@ DEVELOPER 역할은 **조회 전용**이다 (조치 버튼은 화면에 표시�
 - **복제 팩터**: 운영 토픽은 3 고정 (`min.insync.replicas=2`, `acks=all`과 세트).
 - **키**: "순서·집계가 필요한 단위"로 정한다. 특정 키로 트래픽이 쏠리면(대형 고객 등) 핫 파티션이 되므로 분포도 고려.
 - **명명**: 그룹 ID·토픽 이름은 서비스 기준으로 명확하게.
+
+## 스키마 등록 (Schema Registry)
+
+메뉴 "스키마" 또는 토픽 상세의 스키마 섹션에서 등록한다. 메뉴가 없으면 사이트에 `SCHEMA_REGISTRY_URLS` 가 설정되지 않은 것이니 관리자에게 문의한다.
+
+### 등록 화면의 네 항목
+
+| 항목 | 무엇을 고르나 |
+|---|---|
+| 토픽 | 스키마를 붙일 토픽. 서브젝트 이름은 자동으로 `<토픽>-key` / `<토픽>-value` 가 된다 (Confluent 기본 규칙 `TopicNameStrategy`) |
+| 종류 | `value` = 메시지 본문(거의 항상 이것부터). `key` = 메시지 키. 키가 단순 문자열이면 등록하지 않아도 된다 |
+| 형식 | `AVRO`(기본 권장: 컴팩트, 호환성 규칙이 명확) / `JSON`(JSON Schema, 이미 JSON 을 쓰는 앱) / `PROTOBUF`(이미 `.proto` 를 쓰는 조직). 한 서브젝트는 한 형식만 쓰며 첫 등록 때 정해진다 |
+| 스키마 본문 | 아래 예시 형태의 텍스트. 최대 1 MB |
+
+### 형식별 본문 예시 (`order-events` value)
+
+AVRO:
+
+```json
+{
+  "type": "record",
+  "name": "OrderEvent",
+  "namespace": "com.osstem.order",
+  "fields": [
+    { "name": "orderId", "type": "string" },
+    { "name": "amount", "type": "long" },
+    { "name": "status", "type": { "type": "enum", "name": "Status", "symbols": ["CREATED", "PAID", "CANCELED"] } },
+    { "name": "memo", "type": ["null", "string"], "default": null }
+  ]
+}
+```
+
+JSON:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OrderEvent",
+  "type": "object",
+  "properties": {
+    "orderId": { "type": "string" },
+    "amount": { "type": "integer" },
+    "status": { "type": "string", "enum": ["CREATED", "PAID", "CANCELED"] },
+    "memo": { "type": ["string", "null"] }
+  },
+  "required": ["orderId", "amount", "status"],
+  "additionalProperties": false
+}
+```
+
+PROTOBUF:
+
+```proto
+syntax = "proto3";
+package com.osstem.order;
+
+message OrderEvent {
+  string order_id = 1;
+  int64 amount = 2;
+  enum Status { CREATED = 0; PAID = 1; CANCELED = 2; }
+  Status status = 3;
+  optional string memo = 4;
+}
+```
+
+### 등록 흐름
+
+1. 네 항목을 채우면 **호환성 검사** 버튼이 켜진다. 먼저 검사한다.
+2. 첫 등록이면 비교 대상이 없어 바로 통과한다. 기존 버전이 있으면 호환성 모드(운영 기본 `BACKWARD`)로 검사한다.
+   BACKWARD 에서는 **필드 삭제, 기본값 있는 필드 추가**는 허용되고 **기본값 없는 필드 추가, 타입 변경, 이름 변경**은 거부된다.
+3. 통과하면 **등록** 버튼이 켜지고, 등록하면 새 버전 번호가 부여된다. 실패하면 Registry 가 준 사유가 그대로 표시된다.
+
+### 애플리케이션에서 쓰는 법
+
+- 프로듀서/컨슈머 설정에 `schema.registry.url=http://10.10.10.17:8081,http://10.10.10.18:8081` 을 넣고 형식에 맞는 직렬화기를 쓴다:
+  AVRO `KafkaAvroSerializer/Deserializer`, JSON `KafkaJsonSchemaSerializer/Deserializer`, PROTOBUF `KafkaProtobufSerializer/Deserializer`.
+- 서브젝트 이름 전략은 기본값 그대로 둔다. 그래야 이 화면의 `<토픽>-value` 와 일치한다.
+- 관리자 화면에서 미리 등록했다면 앱에는 `auto.register.schemas=false` 를 둔다. 앱이 임의로 스키마를 만들어 버리는 사고를 막는 것이 이 화면의 목적이다.
+
+### 실수하기 쉬운 곳
+
+- Avro 의 `name`/`namespace` 는 나중에 바꾸면 비호환이다. 처음부터 패키지명처럼 정한다.
+- 새 필드에는 항상 `default` 를 준다. 그래야 BACKWARD 검사를 통과하고, 옛 메시지를 새 스키마로 읽을 수 있다.
+- 삭제는 관리자만 할 수 있고 soft delete 다. 잘못 올렸으면 새 버전으로 고치는 편이 빠르다.
 
 ## 로컬 개발
 
